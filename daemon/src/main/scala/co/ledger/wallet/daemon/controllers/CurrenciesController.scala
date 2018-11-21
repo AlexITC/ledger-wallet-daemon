@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RichRequest}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.services.CurrenciesService
 import com.twitter.finagle.http.Request
@@ -60,12 +60,12 @@ object CurrenciesController {
   case class AddressValidatingRequest(@RouteParam pool_name: String,
                                       @RouteParam currency_name: String,
                                       @QueryParam address: String,
-                                      request: Request) extends RichRequest(request)
+                                      request: Request) extends RequestWithUser
 
   case class GetCurrenciesRequest(
                                    @RouteParam pool_name: String,
                                    request: Request
-                                 ) extends RichRequest(request) {
+                                 ) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -76,7 +76,7 @@ object CurrenciesController {
                                  @RouteParam currency_name: String,
                                  @RouteParam pool_name: String,
                                  request: Request
-                               ) extends RichRequest(request) {
+                               ) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 

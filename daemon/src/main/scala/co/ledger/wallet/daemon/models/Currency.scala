@@ -45,6 +45,10 @@ object Currency {
 
   private def newNetworkParamsView(coreCurrency: core.Currency, currencyFamily: core.WalletType): NetworkParamsView = currencyFamily match {
     case core.WalletType.BITCOIN => Bitcoin.newNetworkParamsView(coreCurrency.getBitcoinLikeNetworkParameters)
+      // TODO ETH support
+    case core.WalletType.ETHEREUM => ???
+    case core.WalletType.MONERO => ???
+    case core.WalletType.RIPPLE => ???
   }
 }
 

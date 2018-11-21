@@ -5,7 +5,7 @@ import java.util.{Date, UUID}
 import co.ledger.core.{OperationType, TimePeriod}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.controllers.requests.CommonMethodValidations.DATE_FORMATTER
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RichRequest}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.filters.AccountCreationContext._
@@ -181,7 +181,7 @@ object AccountsController {
   private val DEFAULT_BATCH: Int = 20
   private val DEFAULT_OPERATION_MODE: Int = 0
 
-  abstract class BaseAccountRequest(request: Request) extends RichRequest(request) {
+  abstract class BaseAccountRequest(request: Request) extends RequestWithUser {
     val pool_name: String
     val wallet_name: String
 
@@ -240,7 +240,7 @@ object AccountsController {
                                          @RouteParam wallet_name: String,
                                          @QueryParam account_index: Option[Int],
                                          request: Request
-                                       ) extends RichRequest(request) {
+                                       ) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 

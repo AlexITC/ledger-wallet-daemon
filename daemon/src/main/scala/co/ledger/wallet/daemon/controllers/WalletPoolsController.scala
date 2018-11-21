@@ -3,7 +3,7 @@ package co.ledger.wallet.daemon.controllers
 import javax.inject.Inject
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RichRequest}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.services.AuthenticationService.AuthentifiedUserContext._
 import co.ledger.wallet.daemon.services.PoolsService
@@ -94,7 +94,7 @@ object WalletPoolsController {
   case class CreationRequest(
                               @NotEmpty @JsonProperty pool_name: String,
                               request: Request
-                            ) extends RichRequest(request) {
+                            ) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -103,7 +103,7 @@ object WalletPoolsController {
 
   case class PoolRouteRequest(
                                @RouteParam pool_name: String,
-                               request: Request) extends RichRequest(request) {
+                               request: Request) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 

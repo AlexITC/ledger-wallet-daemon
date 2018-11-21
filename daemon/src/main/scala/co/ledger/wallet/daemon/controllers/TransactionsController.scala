@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RichRequest}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
 import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
 import co.ledger.wallet.daemon.models.FeeMethod
 import co.ledger.wallet.daemon.services.TransactionsService
@@ -39,7 +39,7 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
     *
     */
   post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions")
-  { request: CreateTransactionRequest =>
+  { request: CreateBTCTransactionRequest =>
     info(s"Create transaction $request")
     transactionsService.createTransaction(
       request.transactionInfo,
@@ -56,7 +56,7 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
     * }
     */
   post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions/sign")
-  { request: SignTransactionRequest =>
+  { request: PublishBTCTransactionRequest =>
     info(s"Sign transaction $request")
     transactionsService.signTransaction(request.rawTx, request.pairedSignatures, request.accountInfo)
   }
@@ -64,7 +64,7 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
 }
 
 object TransactionsController {
-  case class SignTransactionRequest(
+  case class PublishBTCTransactionRequest(
                                    @RouteParam pool_name: String,
                                    @RouteParam wallet_name: String,
                                    @RouteParam account_index: Int,
@@ -72,7 +72,7 @@ object TransactionsController {
                                    signatures: Seq[String],
                                    pubkeys: Seq[String],
                                    request: Request
-                                   ) extends RichRequest(request) {
+                                   ) extends RequestWithUser {
     val accountInfo: AccountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
     val rawTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
     lazy val pairedSignatures: Seq[(Array[Byte], Array[Byte])] = signatures.zipWithIndex.map { case (sig, index) =>
@@ -88,18 +88,20 @@ object TransactionsController {
 
   }
 
-  case class CreateTransactionRequest(@RouteParam pool_name: String,
-                                     @RouteParam wallet_name: String,
-                                     @RouteParam account_index: Int,
-                                      recipient: String,
-                                      fees_per_byte: Option[Long],
-                                      fees_level: Option[String],
-                                      amount: Long,
-                                      exclude_utxos: Option[Map[String, Int]],
-                                      request: Request) extends RichRequest(request) {
+  trait CreateTransactionRequest
+
+  case class CreateBTCTransactionRequest(@RouteParam pool_name: String,
+                                         @RouteParam wallet_name: String,
+                                         @RouteParam account_index: Int,
+                                         recipient: String,
+                                         fees_per_byte: Option[Long],
+                                         fees_level: Option[String],
+                                         amount: Long,
+                                         exclude_utxos: Option[Map[String, Int]],
+                                         request: Request) extends RequestWithUser {
 
     val accountInfo: AccountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
-    val transactionInfo: TransactionInfo = TransactionInfo(recipient, fees_per_byte, fees_level, amount, exclude_utxos.getOrElse(Map[String, Int]()))
+    val transactionInfo: BTCTransactionInfo = BTCTransactionInfo(recipient, fees_per_byte, fees_level, amount, exclude_utxos.getOrElse(Map[String, Int]()))
 
     @MethodValidation
     def validateFees: ValidationResult = CommonMethodValidations.validateFees(fees_per_byte, fees_level)
@@ -110,9 +112,14 @@ object TransactionsController {
   case class AccountInfo(poolName: String, walletName: String, index: Int, user: User) {
     override def toString: String = s"account_info(user: ${user.id}, pool_name: $poolName, wallet_name: $walletName, account_index: $index)"
   }
-  case class TransactionInfo(recipient: String, feeAmount: Option[Long], feeLevel: Option[String], amount: Long, excludeUtxos: Map[String, Int]) {
+
+  trait TransactionInfo
+
+  case class BTCTransactionInfo(recipient: String, feeAmount: Option[Long], feeLevel: Option[String], amount: Long, excludeUtxos: Map[String, Int]) extends TransactionInfo {
     lazy val feeMethod: Option[FeeMethod] = feeLevel.map { level => FeeMethod.from(level) }
 
     override def toString: String = s"transaction_info(recipient: $recipient, fee_ammount: $feeAmount, fee_level: $feeLevel, amount: $amount, exclude_utxos: $excludeUtxos)"
   }
+
+  case class ETHTransactionInfo() extends TransactionInfo
 }
