@@ -24,39 +24,43 @@ import scala.concurrent.ExecutionContext
   */
 class TransactionsController @Inject()(transactionsService: TransactionsService) extends Controller {
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
+
   import TransactionsController._
 
   /**
     * Transaction creation method.
     * Input json
     * {
-    *   recipient: recipient address,
-    *   fees_per_byte: optional(in satoshi),
-    *   fees_level: optional(SLOW, FAST, NORMAL),
-    *   amount: in satoshi,
-    *   exclude_utxos: map{txHash: index}
+    * recipient: recipient address,
+    * fees_per_byte: optional(in satoshi),
+    * fees_level: optional(SLOW, FAST, NORMAL),
+    * amount: in satoshi,
+    * exclude_utxos: map{txHash: index}
     * }
     *
     */
-  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions")
-  { request: CreateBTCTransactionRequest =>
+  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions") { request: CreateTransactionRequest =>
     info(s"Create transaction $request")
-    transactionsService.createTransaction(
-      request.transactionInfo,
-      request.accountInfo)
+    request match {
+      case b: CreateBTCTransactionRequest =>
+        transactionsService.createTransaction(
+          b.transactionInfo,
+          b.accountInfo)
+      case e: CreateETHTransactionRequest =>
+        info(s"Create transaction ${e.message}")
+    }
   }
 
   /**
     * Send a signed transaction.
     * Input json
     * {
-    *   raw_transaction: the bytes,
-    *   signatures: [string],
-    *   pubkeys: [string]
+    * raw_transaction: the bytes,
+    * signatures: [string],
+    * pubkeys: [string]
     * }
     */
-  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions/sign")
-  { request: PublishBTCTransactionRequest =>
+  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions/sign") { request: PublishBTCTransactionRequest =>
     info(s"Sign transaction $request")
     transactionsService.signTransaction(request.rawTx, request.pairedSignatures, request.accountInfo)
   }
@@ -64,15 +68,23 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
 }
 
 object TransactionsController {
+
+  trait PushTransactionRequest extends RequestWithUser
+
+  case class PublishETHTransactionRequest(
+                                           raw_transaction: String,
+                                           request: Request
+                                         ) extends PushTransactionRequest
+
   case class PublishBTCTransactionRequest(
-                                   @RouteParam pool_name: String,
-                                   @RouteParam wallet_name: String,
-                                   @RouteParam account_index: Int,
-                                   raw_transaction: String,
-                                   signatures: Seq[String],
-                                   pubkeys: Seq[String],
-                                   request: Request
-                                   ) extends RequestWithUser {
+                                           @RouteParam pool_name: String,
+                                           @RouteParam wallet_name: String,
+                                           @RouteParam account_index: Int,
+                                           raw_transaction: String,
+                                           signatures: Seq[String],
+                                           pubkeys: Seq[String],
+                                           request: Request
+                                         ) extends PushTransactionRequest {
     val accountInfo: AccountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
     val rawTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
     lazy val pairedSignatures: Seq[(Array[Byte], Array[Byte])] = signatures.zipWithIndex.map { case (sig, index) =>
@@ -88,7 +100,12 @@ object TransactionsController {
 
   }
 
-  trait CreateTransactionRequest
+  trait CreateTransactionRequest extends RequestWithUser
+
+  case class CreateETHTransactionRequest(
+                                          message: String,
+                                          request: Request
+                                        ) extends CreateTransactionRequest
 
   case class CreateBTCTransactionRequest(@RouteParam pool_name: String,
                                          @RouteParam wallet_name: String,
@@ -98,7 +115,7 @@ object TransactionsController {
                                          fees_level: Option[String],
                                          amount: Long,
                                          exclude_utxos: Option[Map[String, Int]],
-                                         request: Request) extends RequestWithUser {
+                                         request: Request) extends CreateTransactionRequest {
 
     val accountInfo: AccountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
     val transactionInfo: BTCTransactionInfo = BTCTransactionInfo(recipient, fees_per_byte, fees_level, amount, exclude_utxos.getOrElse(Map[String, Int]()))
@@ -122,4 +139,5 @@ object TransactionsController {
   }
 
   case class ETHTransactionInfo() extends TransactionInfo
+
 }
