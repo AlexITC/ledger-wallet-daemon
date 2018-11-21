@@ -7,7 +7,7 @@ import co.ledger.core.implicits.{UnsupportedOperationException, _}
 import co.ledger.core.{BitcoinLikePickingStrategy, OperationOrderKey}
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
-import co.ledger.wallet.daemon.controllers.TransactionsController.TransactionInfo
+import co.ledger.wallet.daemon.controllers.TransactionsController.BTCTransactionInfo
 import co.ledger.wallet.daemon.exceptions.SignatureSizeUnmatchException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Currency._
@@ -39,7 +39,7 @@ object Account extends Logging {
 
     def signBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.signBTCTransaction(rawTx, signatures, currentHeight, a, c)
 
-    def createTransaction(transactionInfo: TransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createBTCTransaction(transactionInfo, a, c)
+    def createTransaction(transactionInfo: BTCTransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createBTCTransaction(transactionInfo, a, c)
 
     def operation(uid: String, fullOp: Int)(implicit ec: ExecutionContext): Future[Option[core.Operation]] = Account.operation(uid, fullOp, a)
 
@@ -91,7 +91,7 @@ object Account extends Logging {
     } yield txId
   }
 
-  def createBTCTransaction(transactionInfo: TransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
+  def createBTCTransaction(transactionInfo: BTCTransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
     c.getWalletType match {
       case core.WalletType.BITCOIN =>
         for {

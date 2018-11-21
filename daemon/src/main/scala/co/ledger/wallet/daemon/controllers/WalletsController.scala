@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RichRequest}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.services.WalletsService
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -62,7 +62,7 @@ object WalletsController {
                                @RouteParam pool_name: String,
                                @RouteParam wallet_name: String,
                                request: Request
-                             ) extends RichRequest(request) {
+                             ) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -77,7 +77,7 @@ object WalletsController {
                               @QueryParam offset: Option[Int],
                               @QueryParam count: Option[Int],
                               request: Request
-                              ) extends RichRequest(request) {
+                              ) extends RequestWithUser {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -95,7 +95,7 @@ object WalletsController {
                                 @NotEmpty @JsonProperty wallet_name: String,
                                 @NotEmpty @JsonProperty currency_name: String,
                                 request: Request
-                                ) extends RichRequest(request) {
+                                ) extends RequestWithUser {
     @MethodValidation
     def validateWalletName: ValidationResult = CommonMethodValidations.validateName("wallet_name", wallet_name)
 

@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.services
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.TransactionsController.{AccountInfo, TransactionInfo}
+import co.ledger.wallet.daemon.controllers.TransactionsController.{AccountInfo, BTCTransactionInfo}
 import co.ledger.wallet.daemon.database.DefaultDaemonCache
 import co.ledger.wallet.daemon.exceptions.WalletNotFoundException
 import co.ledger.wallet.daemon.models.Account._
@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache) extends DaemonService {
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
-  def createTransaction(transactionInfo: TransactionInfo, accountInfo: AccountInfo): Future[TransactionView] = {
+  def createTransaction(transactionInfo: BTCTransactionInfo, accountInfo: AccountInfo): Future[TransactionView] = {
     for {
       walletOption <- defaultDaemonCache.getWallet(accountInfo.walletName, accountInfo.poolName, accountInfo.user.pubKey)
       wallet <- walletOption.toFuture(WalletNotFoundException(accountInfo.walletName))
