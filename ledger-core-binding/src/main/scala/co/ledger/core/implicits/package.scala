@@ -27,6 +27,7 @@ package object implicits {
     class CurrencyNotFoundException(message: String) extends LedgerCoreWrappedException(ErrorCode.CURRENCY_NOT_FOUND, message)
     class CurrencyUnitNotFoundException(message: String) extends LedgerCoreWrappedException(ErrorCode.CURRENCY_UNIT_NOT_FOUND, message)
     class InvalidBase58FormatException(message: String) extends LedgerCoreWrappedException(ErrorCode.INVALID_BASE58_FORMAT, message)
+    class InvalidEIP55FormatException(message: String) extends LedgerCoreWrappedException(ErrorCode.INVALID_EIP55_FORMAT, message)
     class InvalidChecksumException(message: String) extends LedgerCoreWrappedException(ErrorCode.INVALID_CHECKSUM, message)
     class InvalidVersionException(message: String) extends LedgerCoreWrappedException(ErrorCode.INVALID_VERSION, message)
     class PrivateDerivationNotSupportedException(message: String) extends LedgerCoreWrappedException(ErrorCode.PRIVATE_DERIVATION_NOT_SUPPORTED, message)
@@ -84,6 +85,7 @@ package object implicits {
             case ErrorCode.CURRENCY_NOT_FOUND => new CurrencyNotFoundException(error.getMessage)
             case ErrorCode.CURRENCY_UNIT_NOT_FOUND => new CurrencyUnitNotFoundException(error.getMessage)
             case ErrorCode.INVALID_BASE58_FORMAT => new InvalidBase58FormatException(error.getMessage)
+            case ErrorCode.INVALID_EIP55_FORMAT => new InvalidEIP55FormatException(error.getMessage)
             case ErrorCode.INVALID_CHECKSUM => new InvalidChecksumException(error.getMessage)
             case ErrorCode.INVALID_VERSION => new InvalidVersionException(error.getMessage)
             case ErrorCode.PRIVATE_DERIVATION_NOT_SUPPORTED => new PrivateDerivationNotSupportedException(error.getMessage)
@@ -457,13 +459,77 @@ package object implicits {
     }
     implicit class RichEthereumPublicKeyProvider(val self: EthereumPublicKeyProvider) {
     }
+    implicit class RichERC20LikeAccount(val self: ERC20LikeAccount) {
+    }
+    implicit class RichERC20LikeOperation(val self: ERC20LikeOperation) {
+    }
     implicit class RichGetEthreumLikeWalletCallback(val self: GetEthreumLikeWalletCallback) {
     }
     implicit class RichEthereumLikeWallet(val self: EthereumLikeWallet) {
     }
+    implicit class RichEthereumLikeTransaction(val self: EthereumLikeTransaction) {
+    }
+    implicit class RichEthereumLikeOperation(val self: EthereumLikeOperation) {
+    }
+    implicit class RichEthereumLikeBlock(val self: EthereumLikeBlock) {
+    }
+    implicit class RichEthereumLikeTransactionBuilder(val self: EthereumLikeTransactionBuilder) {
+        def build(): Future[EthereumLikeTransaction] = {
+            val promise = Promise[EthereumLikeTransaction]()
+            self.build(new EthereumLikeTransactionCallback() {
+                override def onCallback(result: EthereumLikeTransaction, error: co.ledger.core.Error): Unit =  {
+                    if (error != null) {
+                        promise.failure(wrapLedgerCoreError(error))
+                    }
+                    else {
+                        promise.success(result)
+                    }
+                }
+            })
+            promise.future
+        }
+    }
+    implicit class RichEthereumLikeTransactionCallback(val self: EthereumLikeTransactionCallback) {
+    }
+    implicit class RichEthereumLikeAccount(val self: EthereumLikeAccount) {
+        def broadcastRawTransaction(transaction: Array[Byte]): Future[String] = {
+            val promise = Promise[String]()
+            self.broadcastRawTransaction(transaction, new StringCallback() {
+                override def onCallback(result: String, error: co.ledger.core.Error): Unit =  {
+                    if (error != null) {
+                        promise.failure(wrapLedgerCoreError(error))
+                    }
+                    else {
+                        promise.success(result)
+                    }
+                }
+            })
+            promise.future
+        }
+        def broadcastTransaction(transaction: EthereumLikeTransaction): Future[String] = {
+            val promise = Promise[String]()
+            self.broadcastTransaction(transaction, new StringCallback() {
+                override def onCallback(result: String, error: co.ledger.core.Error): Unit =  {
+                    if (error != null) {
+                        promise.failure(wrapLedgerCoreError(error))
+                    }
+                    else {
+                        promise.success(result)
+                    }
+                }
+            })
+            promise.future
+        }
+    }
+    implicit class RichStringCallback(val self: StringCallback) {
+    }
     implicit class RichBitcoinLikeScriptChunk(val self: BitcoinLikeScriptChunk) {
     }
     implicit class RichBitcoinLikeScript(val self: BitcoinLikeScript) {
+    }
+    implicit class RichEthereumLikeAddress(val self: EthereumLikeAddress) {
+    }
+    implicit class RichEthereumLikeExtendedPublicKey(val self: EthereumLikeExtendedPublicKey) {
     }
     implicit class RichBitcoinLikeAddress(val self: BitcoinLikeAddress) {
     }
@@ -580,8 +646,6 @@ package object implicits {
         }
     }
     implicit class RichBitcoinLikeOutputListCallback(val self: BitcoinLikeOutputListCallback) {
-    }
-    implicit class RichStringCallback(val self: StringCallback) {
     }
     implicit class RichBitcoinLikeWallet(val self: BitcoinLikeWallet) {
     }

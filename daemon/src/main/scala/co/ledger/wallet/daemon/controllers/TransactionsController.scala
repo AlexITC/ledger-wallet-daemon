@@ -39,7 +39,8 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
     * }
     *
     */
-  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions") { request: CreateTransactionRequest =>
+  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions") { request: Request =>
+    val (poolName, walletName, accountIndex) = (request.getParam("pool_name"), request.getParam("wallet_name"), request.getIntParam("account_index"))
     info(s"Create transaction $request")
     request match {
       case b: CreateBTCTransactionRequest =>
