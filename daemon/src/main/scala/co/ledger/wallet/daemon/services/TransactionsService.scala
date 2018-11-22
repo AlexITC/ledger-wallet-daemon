@@ -64,7 +64,7 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
           account.get.broadcastBTCTransaction(req.rawTx, req.pairedSignatures, currentHeight, wallet.getCurrency)
         case WalletType.ETHEREUM =>
           val req = messageBodyManager.read[PublishETHTransactionRequest](request)
-          account.get.broadcastETHTransaction(req.hexTx, req.hexSig, currentHeight, wallet.getCurrency)
+          account.get.broadcastETHTransaction(req.hexTx, req.hexSig, wallet.getCurrency)
         case w => Future.failed(CurrencyNotFoundException(w.name()))
       }
     } yield r

@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.models
 
 import co.ledger.core
-import co.ledger.wallet.daemon.models.coins.Bitcoin
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, Ethereum, EthereumNetworkParamView}
 import co.ledger.wallet.daemon.models.coins.Coin.NetworkParamsView
 import com.fasterxml.jackson.annotation.JsonProperty
 
@@ -11,7 +11,7 @@ object Currency {
   implicit class RichCoreCurrency(val c: core.Currency) extends AnyVal {
     def concatSig(sig: Array[Byte]): Array[Byte] = Currency.concatSig(c)(sig)
     def parseUnsignedBTCTransaction(rawTx: Array[Byte], currentHeight: Long): Either[String, core.BitcoinLikeTransaction] = Currency.parseUnsignedBTCTransaction(c)(rawTx, currentHeight)
-    def parseUnsignedETHTransaction(rawTx: Array[Byte], currentHeight: Long): Either[String, core.EthereumLikeTransaction] = Currency.parseUnsignedETHTransaction(c)(rawTx, currentHeight)
+    def parseUnsignedETHTransaction(rawTx: Array[Byte]): Either[String, core.EthereumLikeTransaction] = Currency.parseUnsignedETHTransaction(c)(rawTx)
     def validateAddress(address: String): Boolean = Currency.validateAddress(c)(address)
     def convertAmount(amount: Long): core.Amount = Currency.convertAmount(c)(amount)
     def currencyView: CurrencyView = Currency.currencyView(c)
@@ -28,7 +28,7 @@ object Currency {
       case w => Left(s"$w is not Bitcoin")
     }
 
-  def parseUnsignedETHTransaction(currency: core.Currency)(rawTx: Array[Byte], currentHeight: Long): Either[String, core.EthereumLikeTransaction] =
+  def parseUnsignedETHTransaction(currency: core.Currency)(rawTx: Array[Byte]): Either[String, core.EthereumLikeTransaction] =
     currency.getWalletType match {
       case core.WalletType.ETHEREUM => Right(core.EthereumLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx))
       case w => Left(s"$w is not Ethereum")
@@ -44,18 +44,15 @@ object Currency {
     c.getBip44CoinType,
     c.getPaymentUriScheme,
     c.getUnits.asScala.map(newUnitView),
-    newNetworkParamsView(c, c.getWalletType)
+    newNetworkParamsView(c)
   )
 
   private def newUnitView(coreUnit: core.CurrencyUnit): UnitView =
     UnitView(coreUnit.getName, coreUnit.getSymbol, coreUnit.getCode, coreUnit.getNumberOfDecimal)
 
-  private def newNetworkParamsView(coreCurrency: core.Currency, currencyFamily: core.WalletType): NetworkParamsView = currencyFamily match {
+  private def newNetworkParamsView(coreCurrency: core.Currency): NetworkParamsView = coreCurrency.getWalletType match {
     case core.WalletType.BITCOIN => Bitcoin.newNetworkParamsView(coreCurrency.getBitcoinLikeNetworkParameters)
-      // TODO ETH support
-    case core.WalletType.ETHEREUM => ???
-    case core.WalletType.MONERO => ???
-    case core.WalletType.RIPPLE => ???
+    case core.WalletType.ETHEREUM => EthereumNetworkParamView(coreCurrency.getEthereumLikeNetworkParameters)
   }
 }
 

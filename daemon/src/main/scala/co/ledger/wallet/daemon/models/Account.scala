@@ -39,7 +39,7 @@ object Account extends Logging {
 
     def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
 
-    def broadcastETHTransaction(rawTx: Array[Byte], signatures: ETHSignature, currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastETHTransaction(rawTx, signatures, currentHeight, a, c)
+    def broadcastETHTransaction(rawTx: Array[Byte], signatures: ETHSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastETHTransaction(rawTx, signatures, a, c)
 
     def createTransaction(transactionInfo: TransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createTransaction(transactionInfo, a, c)
 
@@ -90,9 +90,11 @@ object Account extends Logging {
     }
   }
 
-  def broadcastETHTransaction(rawTx: Array[Byte], signature: ETHSignature, currentHeight: Long, a: core.Account, c: core.Currency): Future[String] = {
-    c.parseUnsignedETHTransaction(rawTx, currentHeight) match {
-      case Right(tx) => ???
+  def broadcastETHTransaction(rawTx: Array[Byte], signature: ETHSignature, a: core.Account, c: core.Currency): Future[String] = {
+    c.parseUnsignedETHTransaction(rawTx) match {
+      case Right(tx) =>
+        // TODO wait lib core fix
+        ???
       case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't sign transaction: $m"))
     }
   }
