@@ -15,4 +15,11 @@ object Coin {
 }
 
 
+trait Network {
+  type Block
+  type Transaction
+}
 
+object Network {
+  def createTransaction[T <: Network](n: T): n.Block = ???
+}

@@ -42,7 +42,7 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache) exte
       currentHeight <- wallet.lastBlockHeight
       r <- defaultDaemonCache.getHardAccount(accountInfo.user, accountInfo.poolName, accountInfo.walletName, accountInfo.index)
         .flatMap { case (_, _, account) =>
-          account.signBTCTransaction(rawTx, pairedSignatures, currentHeight, wallet.getCurrency)
+          account.broadcastBTCTransaction(rawTx, pairedSignatures, currentHeight, wallet.getCurrency)
         }
     } yield r
   }

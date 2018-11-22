@@ -27,6 +27,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 object Account extends Logging {
 
   implicit class RichCoreAccount(val a: core.Account) extends AnyVal {
+    a.getWalletType
     def balance(implicit ec: ExecutionContext): Future[Long] = Account.balance(a)
 
     def balances(start: String, end: String, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Long]] = Account.balances(start, end, timePeriod, a)
@@ -37,7 +38,7 @@ object Account extends Logging {
 
     def accountView(walletName: String, cv: CurrencyView)(implicit ec: ExecutionContext): Future[AccountView] = Account.accountView(walletName, cv, a)
 
-    def signBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.signBTCTransaction(rawTx, signatures, currentHeight, a, c)
+    def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
 
     def createTransaction(transactionInfo: BTCTransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createBTCTransaction(transactionInfo, a, c)
 
@@ -72,24 +73,23 @@ object Account extends Logging {
       opsCount <- operationCounts(a)
     } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv)
 
-  def signBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
-    for {
-      // TODO avoid brute force Either resolve
-      txId <- c.parseUnsignedBTCTransaction(rawTx, currentHeight) match {
-        case Right(tx) =>
-          if (tx.getInputs.size != signatures.size) Future.failed(new SignatureSizeUnmatchException(tx.getInputs.size(), signatures.size))
-          else {
-            tx.getInputs.asScala.zipWithIndex.foreach { case (input, index) =>
-              input.pushToScriptSig(c.concatSig(signatures(index)._1)) // signature
-              input.pushToScriptSig(signatures(index)._2) // pubkey
-            }
-            debug(s"transaction after sign '${HexUtils.valueOf(tx.serialize())}'")
-            a.asBitcoinLikeAccount().broadcastTransaction(tx)
+  def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
+    c.parseUnsignedBTCTransaction(rawTx, currentHeight) match {
+      case Right(tx) =>
+        if (tx.getInputs.size != signatures.size) Future.failed(new SignatureSizeUnmatchException(tx.getInputs.size(), signatures.size))
+        else {
+          tx.getInputs.asScala.zipWithIndex.foreach { case (input, index) =>
+            input.pushToScriptSig(c.concatSig(signatures(index)._1)) // signature
+            input.pushToScriptSig(signatures(index)._2) // pubkey
           }
-        case Left(_) => Future.failed(new UnsupportedOperationException("Account type not supported, can't sign transaction"))
-      }
-    } yield txId
+          debug(s"transaction after sign '${HexUtils.valueOf(tx.serialize())}'")
+          a.asBitcoinLikeAccount().broadcastTransaction(tx)
+        }
+      case Left(_) => Future.failed(new UnsupportedOperationException("Account type not supported, can't sign transaction"))
+    }
   }
+
+  def broadcastETHTransaction(a: core.Account) = ???
 
   def createBTCTransaction(transactionInfo: BTCTransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
     c.getWalletType match {
