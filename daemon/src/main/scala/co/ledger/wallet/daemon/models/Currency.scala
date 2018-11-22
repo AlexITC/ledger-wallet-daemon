@@ -11,6 +11,7 @@ object Currency {
   implicit class RichCoreCurrency(val c: core.Currency) extends AnyVal {
     def concatSig(sig: Array[Byte]): Array[Byte] = Currency.concatSig(c)(sig)
     def parseUnsignedBTCTransaction(rawTx: Array[Byte], currentHeight: Long): Either[String, core.BitcoinLikeTransaction] = Currency.parseUnsignedBTCTransaction(c)(rawTx, currentHeight)
+    def parseUnsignedETHTransaction(rawTx: Array[Byte], currentHeight: Long): Either[String, core.EthereumLikeTransaction] = Currency.parseUnsignedETHTransaction(c)(rawTx, currentHeight)
     def validateAddress(address: String): Boolean = Currency.validateAddress(c)(address)
     def convertAmount(amount: Long): core.Amount = Currency.convertAmount(c)(amount)
     def currencyView: CurrencyView = Currency.currencyView(c)
@@ -24,7 +25,13 @@ object Currency {
   def parseUnsignedBTCTransaction(currency: core.Currency)(rawTx: Array[Byte], currentHeight: Long): Either[String, core.BitcoinLikeTransaction] =
     currency.getWalletType match {
       case core.WalletType.BITCOIN => Right(core.BitcoinLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx, currentHeight.toInt))
-      case w => Left(s"$w is not BITCOIN type")
+      case w => Left(s"$w is not Bitcoin")
+    }
+
+  def parseUnsignedETHTransaction(currency: core.Currency)(rawTx: Array[Byte], currentHeight: Long): Either[String, core.EthereumLikeTransaction] =
+    currency.getWalletType match {
+      case core.WalletType.ETHEREUM => Right(core.EthereumLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx))
+      case w => Left(s"$w is not Ethereum")
     }
 
   def validateAddress(c: core.Currency)(address: String): Boolean = core.Address.isValid(address, c)
