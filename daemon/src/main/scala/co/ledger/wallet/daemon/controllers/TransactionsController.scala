@@ -39,17 +39,9 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
     * }
     *
     */
-  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions") { request: Request =>
-    val (poolName, walletName, accountIndex) = (request.getParam("pool_name"), request.getParam("wallet_name"), request.getIntParam("account_index"))
-    info(s"Create transaction $request")
-    request match {
-      case b: CreateBTCTransactionRequest =>
-        transactionsService.createTransaction(
-          b.transactionInfo,
-          b.accountInfo)
-      case e: CreateETHTransactionRequest =>
-        info(s"Create transaction ${e.message}")
-    }
+  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions") { request: AccountInfoRequest =>
+    info(s"Create transaction $request: ${request.request.contentString}")
+    transactionsService.createTransaction(request.request, request.accountInfo)
   }
 
   /**
@@ -61,34 +53,43 @@ class TransactionsController @Inject()(transactionsService: TransactionsService)
     * pubkeys: [string]
     * }
     */
-  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions/sign") { request: PublishBTCTransactionRequest =>
-    info(s"Sign transaction $request")
-    transactionsService.signTransaction(request.rawTx, request.pairedSignatures, request.accountInfo)
+  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/transactions/sign") { request: AccountInfoRequest =>
+    info(s"Sign transaction $request: ${request.request.contentString}")
+    transactionsService.broadcastTransaction(request.request, request.accountInfo)
   }
 
 }
 
 object TransactionsController {
 
-  trait PushTransactionRequest extends RequestWithUser
+  case class AccountInfoRequest(@RouteParam pool_name: String,
+                                @RouteParam wallet_name: String,
+                                @RouteParam account_index: Int,
+                                request: Request
+                               ) extends RequestWithUser
+  {
+    def accountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
+  }
+
+  trait PushTransactionRequest
 
   case class PublishETHTransactionRequest(
                                            raw_transaction: String,
+                                           signature: String,
                                            request: Request
-                                         ) extends PushTransactionRequest
+                                         ) extends PushTransactionRequest {
+    def hexTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
+    def hexSig: Array[Byte] = HexUtils.valueOf(signature)
+  }
 
   case class PublishBTCTransactionRequest(
-                                           @RouteParam pool_name: String,
-                                           @RouteParam wallet_name: String,
-                                           @RouteParam account_index: Int,
                                            raw_transaction: String,
                                            signatures: Seq[String],
                                            pubkeys: Seq[String],
                                            request: Request
                                          ) extends PushTransactionRequest {
-    val accountInfo: AccountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
-    val rawTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
-    lazy val pairedSignatures: Seq[(Array[Byte], Array[Byte])] = signatures.zipWithIndex.map { case (sig, index) =>
+    def rawTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
+    def pairedSignatures: Seq[(Array[Byte], Array[Byte])] = signatures.zipWithIndex.map { case (sig, index) =>
       (HexUtils.valueOf(sig), HexUtils.valueOf(pubkeys(index)))
     }
 
@@ -96,49 +97,42 @@ object TransactionsController {
     def validateSignatures: ValidationResult = ValidationResult.validate(
       signatures.size == pubkeys.size,
       "signatures and pubkeys size not matching")
-
-    override def toString: String = s"$request, Parameters($accountInfo, raw_transaction: $raw_transaction, signatures: $signatures, pubkeys: $pubkeys)"
-
   }
 
-  trait CreateTransactionRequest extends RequestWithUser
+  trait CreateTransactionRequest {
+    def transactionInfo: TransactionInfo
+  }
 
-  case class CreateETHTransactionRequest(
-                                          message: String,
-                                          request: Request
-                                        ) extends CreateTransactionRequest
+  case class CreateETHTransactionRequest(recipient: String,
+                                         amount: Long,
+                                         gas_limit: Long,
+                                         gas_price: Long,
+                                         input: String
+                                        ) extends CreateTransactionRequest {
+    override def transactionInfo: TransactionInfo = ETHTransactionInfo(recipient, amount, gas_limit, gas_price, HexUtils.valueOf(input))
+  }
 
-  case class CreateBTCTransactionRequest(@RouteParam pool_name: String,
-                                         @RouteParam wallet_name: String,
-                                         @RouteParam account_index: Int,
-                                         recipient: String,
+  case class CreateBTCTransactionRequest(recipient: String,
                                          fees_per_byte: Option[Long],
                                          fees_level: Option[String],
                                          amount: Long,
                                          exclude_utxos: Option[Map[String, Int]],
-                                         request: Request) extends CreateTransactionRequest {
+                                        ) extends CreateTransactionRequest {
 
-    val accountInfo: AccountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
-    val transactionInfo: BTCTransactionInfo = BTCTransactionInfo(recipient, fees_per_byte, fees_level, amount, exclude_utxos.getOrElse(Map[String, Int]()))
+    def transactionInfo: BTCTransactionInfo = BTCTransactionInfo(recipient, fees_per_byte, fees_level, amount, exclude_utxos.getOrElse(Map[String, Int]()))
 
     @MethodValidation
     def validateFees: ValidationResult = CommonMethodValidations.validateFees(fees_per_byte, fees_level)
-
-    override def toString: String = s"$request, Parameters($accountInfo, $transactionInfo)"
   }
 
-  case class AccountInfo(poolName: String, walletName: String, index: Int, user: User) {
-    override def toString: String = s"account_info(user: ${user.id}, pool_name: $poolName, wallet_name: $walletName, account_index: $index)"
-  }
+  case class AccountInfo(poolName: String, walletName: String, accountIndex: Int, user: User)
 
   trait TransactionInfo
 
   case class BTCTransactionInfo(recipient: String, feeAmount: Option[Long], feeLevel: Option[String], amount: Long, excludeUtxos: Map[String, Int]) extends TransactionInfo {
     lazy val feeMethod: Option[FeeMethod] = feeLevel.map { level => FeeMethod.from(level) }
-
-    override def toString: String = s"transaction_info(recipient: $recipient, fee_ammount: $feeAmount, fee_level: $feeLevel, amount: $amount, exclude_utxos: $excludeUtxos)"
   }
 
-  case class ETHTransactionInfo() extends TransactionInfo
+  case class ETHTransactionInfo(recipient: String, amount: Long, gasLimit: Long, gasPrice: Long, input: Array[Byte]) extends TransactionInfo
 
 }

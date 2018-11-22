@@ -4,14 +4,14 @@ import java.util.{Calendar, Date}
 
 import co.ledger.core
 import co.ledger.core.implicits.{UnsupportedOperationException, _}
-import co.ledger.core.{BitcoinLikePickingStrategy, OperationOrderKey}
+import co.ledger.core.{BitcoinLikePickingStrategy, OperationOrderKey, WalletType}
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
-import co.ledger.wallet.daemon.controllers.TransactionsController.BTCTransactionInfo
+import co.ledger.wallet.daemon.controllers.TransactionsController.{BTCTransactionInfo, ETHTransactionInfo, TransactionInfo}
 import co.ledger.wallet.daemon.exceptions.SignatureSizeUnmatchException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Currency._
-import co.ledger.wallet.daemon.models.coins.Bitcoin
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, Ethereum}
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
 import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceiver, SynchronizationResult}
 import co.ledger.wallet.daemon.services.LogMsgMaker
@@ -27,7 +27,6 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 object Account extends Logging {
 
   implicit class RichCoreAccount(val a: core.Account) extends AnyVal {
-    a.getWalletType
     def balance(implicit ec: ExecutionContext): Future[Long] = Account.balance(a)
 
     def balances(start: String, end: String, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Long]] = Account.balances(start, end, timePeriod, a)
@@ -38,9 +37,11 @@ object Account extends Logging {
 
     def accountView(walletName: String, cv: CurrencyView)(implicit ec: ExecutionContext): Future[AccountView] = Account.accountView(walletName, cv, a)
 
-    def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
+    def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
 
-    def createTransaction(transactionInfo: BTCTransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createBTCTransaction(transactionInfo, a, c)
+    def broadcastETHTransaction(rawTx: Array[Byte], signatures: ETHSignature, currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastETHTransaction(rawTx, signatures, currentHeight, a, c)
+
+    def createTransaction(transactionInfo: TransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createTransaction(transactionInfo, a, c)
 
     def operation(uid: String, fullOp: Int)(implicit ec: ExecutionContext): Future[Option[core.Operation]] = Account.operation(uid, fullOp, a)
 
@@ -73,7 +74,7 @@ object Account extends Logging {
       opsCount <- operationCounts(a)
     } yield AccountView(walletName, a.getIndex, b, opsCount, a.getRestoreKey, cv)
 
-  def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[(Array[Byte], Array[Byte])], currentHeight: Long, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
+  def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
     c.parseUnsignedBTCTransaction(rawTx, currentHeight) match {
       case Right(tx) =>
         if (tx.getInputs.size != signatures.size) Future.failed(new SignatureSizeUnmatchException(tx.getInputs.size(), signatures.size))
@@ -85,27 +86,42 @@ object Account extends Logging {
           debug(s"transaction after sign '${HexUtils.valueOf(tx.serialize())}'")
           a.asBitcoinLikeAccount().broadcastTransaction(tx)
         }
-      case Left(_) => Future.failed(new UnsupportedOperationException("Account type not supported, can't sign transaction"))
+      case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't sign transaction: $m"))
     }
   }
 
-  def broadcastETHTransaction(a: core.Account) = ???
+  def broadcastETHTransaction(rawTx: Array[Byte], signature: ETHSignature, currentHeight: Long, a: core.Account, c: core.Currency): Future[String] = {
+    c.parseUnsignedETHTransaction(rawTx, currentHeight) match {
+      case Right(tx) => ???
+      case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't sign transaction: $m"))
+    }
+  }
 
-  def createBTCTransaction(transactionInfo: BTCTransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
-    c.getWalletType match {
-      case core.WalletType.BITCOIN =>
+  def createTransaction(transactionInfo: TransactionInfo, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = {
+    (transactionInfo, c.getWalletType) match {
+      case (ti: BTCTransactionInfo, WalletType.BITCOIN) =>
         for {
-          feesPerByte <- transactionInfo.feeAmount match {
+          feesPerByte <- ti.feeAmount match {
             case Some(amount) => Future.successful(c.convertAmount(amount))
-            case None => ClientFactory.apiClient.getFees(c.getName).map(f => c.convertAmount(f.getAmount(transactionInfo.feeMethod.get)))
+            case None => ClientFactory.apiClient.getFees(c.getName).map(f => c.convertAmount(f.getAmount(ti.feeMethod.get)))
           }
           tx <- a.asBitcoinLikeAccount().buildTransaction()
-            .sendToAddress(c.convertAmount(transactionInfo.amount), transactionInfo.recipient)
+            .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
             .pickInputs(BitcoinLikePickingStrategy.DEEP_OUTPUTS_FIRST, UnsignedInteger.MAX_VALUE.intValue())
             .setFeesPerByte(feesPerByte)
             .build()
           v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte.toLong)
         } yield v
+      case (ti: ETHTransactionInfo, WalletType.ETHEREUM) => {
+        for {
+          tx <- a.asEthereumLikeAccount().buildTransaction()
+            .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
+            .setGasLimit(c.convertAmount(ti.gasLimit))
+            .setGasPrice(c.convertAmount(ti.gasPrice))
+            .setInputData(ti.input)
+            .build()
+        } yield Ethereum.newUnsignedTransactionView(tx)
+      }
       case _ => Future.failed(new UnsupportedOperationException("Account type not supported, can't create transaction"))
     }
   }

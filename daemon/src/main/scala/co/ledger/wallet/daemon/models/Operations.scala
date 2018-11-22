@@ -64,6 +64,7 @@ object Operations {
     if (operation.isComplete) {
       curFamily match {
         case core.WalletType.BITCOIN => Some(Bitcoin.newTransactionView(operation.asBitcoinLikeOperation().getTransaction))
+        case _ => None
       }
     } else None
   }
