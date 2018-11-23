@@ -25,7 +25,7 @@ class DaemonCacheTest extends AssertionsForJUnit {
 
   @Test def verifyDeleteNotExistPool(): Unit = {
       val user1 = Await.result(cache.getUser(PUB_KEY_1), Duration.Inf)
-      Await.result(cache.deleteWalletPool(user1.get, "pool_not_exist"), Duration.Inf)
+      Await.result(cache.deleteWalletPool(user1.get.pubKey, "pool_not_exist"), Duration.Inf)
   }
 
   @Test def verifyGetPoolsWithNotExistUser(): Unit = {
@@ -40,7 +40,7 @@ class DaemonCacheTest extends AssertionsForJUnit {
   @Test def verifyCreateAndGetPools(): Unit = {
     val pool11 = Await.result(cache.getWalletPool(PUB_KEY_1, "pool_1"), Duration.Inf)
     val pool12 = Await.result(cache.getWalletPool(PUB_KEY_1, "pool_2"), Duration.Inf)
-    val pool13 = Await.result(cache.createWalletPool(new User(1L, PUB_KEY_1), "pool_3", "config"), Duration.Inf)
+    val pool13 = Await.result(cache.createWalletPool(new User(1L, PUB_KEY_1).pubKey, "pool_3", "config"), Duration.Inf)
     val pool1s = Await.result(cache.getWalletPools(PUB_KEY_1), Duration.Inf)
     assertEquals(3, pool1s.size)
     assertTrue(pool1s.contains(pool11.get))
@@ -49,12 +49,12 @@ class DaemonCacheTest extends AssertionsForJUnit {
   }
 
   @Test def verifyCreateAndDeletePool(): Unit = {
-    val poolRandom = Await.result(cache.createWalletPool(new User(2L, PUB_KEY_2),UUID.randomUUID().toString, "config"), Duration.Inf)
+    val poolRandom = Await.result(cache.createWalletPool(new User(2L, PUB_KEY_2).pubKey,UUID.randomUUID().toString, "config"), Duration.Inf)
     val beforeDeletion = Await.result(cache.getWalletPools(PUB_KEY_2), Duration.Inf)
     assertEquals(3, beforeDeletion.size)
     assertTrue(beforeDeletion.contains(poolRandom))
 
-    val afterDeletion = Await.result(cache.deleteWalletPool(new User(2L, PUB_KEY_2), poolRandom.name).flatMap(_=>cache.getWalletPools(PUB_KEY_2)), Duration.Inf)
+    val afterDeletion = Await.result(cache.deleteWalletPool(new User(2L, PUB_KEY_2).pubKey, poolRandom.name).flatMap(_=>cache.getWalletPools(PUB_KEY_2)), Duration.Inf)
     assertFalse(afterDeletion.contains(poolRandom))
   }
 
@@ -67,10 +67,10 @@ class DaemonCacheTest extends AssertionsForJUnit {
 
   @Test def verifyGetFreshAddressesFromNonExistingAccount(): Unit = {
     val user3 = Await.result(cache.getUser(PUB_KEY_3), Duration.Inf)
-    val addresses: Seq[FreshAddressView] = Await.result(cache.getFreshAddresses(accountIndex = 0, user3.get, POOL_NAME, WALLET_NAME), Duration.Inf)
+    val addresses: Seq[FreshAddressView] = Await.result(cache.getFreshAddresses(accountIndex = 0, user3.get.pubKey, POOL_NAME, WALLET_NAME), Duration.Inf)
     assert(!addresses.isEmpty)
     try {
-      Await.result(cache.getFreshAddresses(accountIndex = 1, user3.get, POOL_NAME, WALLET_NAME), Duration.Inf)
+      Await.result(cache.getFreshAddresses(accountIndex = 1, user3.get.pubKey, POOL_NAME, WALLET_NAME), Duration.Inf)
       fail()
     } catch {
       case _: AccountNotFoundException => // expected
@@ -117,17 +117,17 @@ object DaemonCacheTest {
     val user1 = Await.result(cache.getUser(PUB_KEY_1), Duration.Inf)
     val user2 = Await.result(cache.getUser(PUB_KEY_2), Duration.Inf)
     val user3 = Await.result(cache.getUser(PUB_KEY_3), Duration.Inf)
-    Await.result(cache.createWalletPool(user1.get, "pool_1", ""), Duration.Inf)
-    Await.result(cache.createWalletPool(user1.get, "pool_2", ""), Duration.Inf)
-    Await.result(cache.createWalletPool(user2.get, "pool_1", ""), Duration.Inf)
-    Await.result(cache.createWalletPool(user2.get, "pool_3", ""), Duration.Inf)
-    Await.result(cache.createWalletPool(user3.get, POOL_NAME, ""), Duration.Inf)
-    Await.result(cache.createWallet(WALLET_NAME, "bitcoin", POOL_NAME, user3.get), Duration.Inf)
+    Await.result(cache.createWalletPool(user1.get.pubKey, "pool_1", ""), Duration.Inf)
+    Await.result(cache.createWalletPool(user1.get.pubKey, "pool_2", ""), Duration.Inf)
+    Await.result(cache.createWalletPool(user2.get.pubKey, "pool_1", ""), Duration.Inf)
+    Await.result(cache.createWalletPool(user2.get.pubKey, "pool_3", ""), Duration.Inf)
+    Await.result(cache.createWalletPool(user3.get.pubKey, POOL_NAME, ""), Duration.Inf)
+    Await.result(cache.createWallet(WALLET_NAME, "bitcoin", POOL_NAME, user3.get.pubKey), Duration.Inf)
     Await.result(cache.createAccount(
       AccountDerivationView(0, List(
         DerivationView("44'/0'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")),
         DerivationView("44'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")))),
-        user3.get,
+        user3.get.pubKey,
         POOL_NAME,
         WALLET_NAME), Duration.Inf)
     Await.result(cache.getAccountOperations(user3.get, 0, POOL_NAME, WALLET_NAME, 1, 1), Duration.Inf)

@@ -16,7 +16,7 @@ class PoolsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
   import PoolsService._
 
   def createPool(user: User, poolName: String, configuration: PoolConfiguration): Future[WalletPoolView] = {
-    daemonCache.createWalletPool(user, poolName, configuration.toString).flatMap(_.view)
+    daemonCache.createWalletPool(user.pubKey, poolName, configuration.toString).flatMap(_.view)
   }
 
   def pools(user: User): Future[Seq[WalletPoolView]] = {
@@ -35,11 +35,11 @@ class PoolsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
   }
 
   def syncOperations(): Future[Seq[SynchronizationResult]] = {
-    daemonCache.syncOperations()
+    daemonCache.syncOperations
   }
 
   def removePool(user: User, poolName: String): Future[Unit] = {
-    daemonCache.deleteWalletPool(user, poolName)
+    daemonCache.deleteWalletPool(user.pubKey, poolName)
   }
 
 }

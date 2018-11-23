@@ -43,14 +43,10 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
     } yield tv
   }
 
-  def createTransaction(transactionInfo: TransactionInfo, accountInfo: AccountInfo, currency: Currency): Future[TransactionView] = {
-    for {
-      tv <- defaultDaemonCache.getHardAccount(accountInfo.user, accountInfo.poolName, accountInfo.walletName, accountInfo.accountIndex)
-        .flatMap { case (_, _, account) =>
-          account.createTransaction(transactionInfo, currency)
-        }
-    } yield tv
-  }
+  def createTransaction(transactionInfo: TransactionInfo, accountInfo: AccountInfo, currency: Currency): Future[TransactionView] =
+    defaultDaemonCache.withAccount(accountInfo.accountIndex, accountInfo.walletName,accountInfo.poolName, accountInfo.user.pubKey){
+      _.createTransaction(transactionInfo, currency)
+    }
 
   def broadcastTransaction(request: Request, accountInfo: AccountInfo): Future[String] = {
     for {

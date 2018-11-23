@@ -1,8 +1,9 @@
 package co.ledger.wallet.daemon.modules
 
 import java.util.concurrent.TimeUnit
-import javax.inject.Singleton
 
+import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
+import javax.inject.Singleton
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.database.{DaemonCache, DefaultDaemonCache}
 import co.ledger.wallet.daemon.services.UsersService
@@ -11,11 +12,12 @@ import com.twitter.concurrent.NamedPoolThreadFactory
 import com.twitter.inject.{Injector, TwitterModule}
 import com.twitter.util.{Duration, ScheduledThreadPoolTimer, Time}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 object DaemonCacheModule extends TwitterModule {
+  implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
   @Singleton
   @Provides
@@ -32,7 +34,7 @@ object DaemonCacheModule extends TwitterModule {
 
     def synchronizationTask(): Unit = {
       val t0 = System.currentTimeMillis()
-      Try(Await.result(daemonCache.syncOperations(), 5.minutes)) match {
+      Try(Await.result(daemonCache.syncOperations, 5.minutes)) match {
         case Success(result) =>
           result.foreach { r =>
             if (r.syncResult) { info(s"Synchronization complete for $r") }

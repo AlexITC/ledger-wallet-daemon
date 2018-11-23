@@ -29,7 +29,7 @@ class WalletsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
   }
 
   def createWallet(user: User, poolName: String, walletName: String, currencyName: String): Future[WalletView] = {
-    daemonCache.createWallet(walletName, currencyName, poolName, user).flatMap(_.walletView)
+    daemonCache.createWallet(walletName, currencyName, poolName, user.pubKey).flatMap(_.walletView)
   }
 
 }
