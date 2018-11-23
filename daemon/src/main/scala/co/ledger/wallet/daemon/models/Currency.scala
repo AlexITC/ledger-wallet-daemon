@@ -1,8 +1,8 @@
 package co.ledger.wallet.daemon.models
 
 import co.ledger.core
-import co.ledger.wallet.daemon.models.coins.{Bitcoin, Ethereum, EthereumNetworkParamView}
 import co.ledger.wallet.daemon.models.coins.Coin.NetworkParamsView
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, EthereumNetworkParamView}
 import com.fasterxml.jackson.annotation.JsonProperty
 
 import scala.collection.JavaConverters._

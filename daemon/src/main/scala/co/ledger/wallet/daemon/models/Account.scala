@@ -11,8 +11,8 @@ import co.ledger.wallet.daemon.controllers.TransactionsController.{BTCTransactio
 import co.ledger.wallet.daemon.exceptions.SignatureSizeUnmatchException
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Currency._
-import co.ledger.wallet.daemon.models.coins.{Bitcoin, Ethereum}
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, UnsignedEthereumTransactionView}
 import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceiver, SynchronizationResult}
 import co.ledger.wallet.daemon.services.LogMsgMaker
 import co.ledger.wallet.daemon.utils.HexUtils
@@ -122,7 +122,7 @@ object Account extends Logging {
             .setGasPrice(c.convertAmount(ti.gasPrice))
             .setInputData(ti.input)
             .build()
-        } yield Ethereum.newUnsignedTransactionView(tx)
+        } yield UnsignedEthereumTransactionView(tx)
       }
       case _ => Future.failed(new UnsupportedOperationException("Account type not supported, can't create transaction"))
     }
