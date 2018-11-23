@@ -39,116 +39,11 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
     }
   }
 
-  override def syncOperations(pubKey: String, poolName: String): Future[Seq[SynchronizationResult]] = {
-    getWalletPool(pubKey, poolName).flatMap({
-      case Some(pool) => pool.sync()
-      case None => Future.failed(WalletPoolNotFoundException(poolName))
-    })
-  }
-
-  override def syncOperations(pubKey: String, poolName: String, walletName: String, accountIndex: Int): Future[Seq[SynchronizationResult]] = {
-    getAccount(accountIndex, pubKey, poolName, walletName).flatMap({
-      case Some(account) => account.sync(poolName, walletName).map(Seq(_))
-      case None => Future.failed(AccountNotFoundException(accountIndex))
-    })
-  }
-
-  def getAccount(accountIndex: Int, pubKey: String, poolName: String, walletName: String): Future[Option[Account]] = {
-    getHardWallet(pubKey, poolName, walletName).flatMap { wallet => wallet.account(accountIndex) }
-  }
-
-  def getAccounts(pubKey: String, poolName: String, walletName: String): Future[Seq[Account]] = {
-    getHardWallet(pubKey, poolName, walletName).flatMap { wallet => wallet.accounts }
-  }
-
-  def getFreshAddresses(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Seq[FreshAddressView]] = {
-    for {
-      (_, _, account) <- getHardAccount(user, poolName, walletName, accountIndex)
-      addrs <- account.freshAddresses
-    } yield addrs.map { add => FreshAddressView(add.toString, add.getDerivationPath) }
-  }
-
-  def getDerivationPath(accountIndex: Int, pubKey: String, poolName: String, walletName: String): Future[String] = {
-    getHardWallet(pubKey, poolName, walletName).flatMap { wallet => wallet.accountDerivationPathInfo(accountIndex) }
-  }
-
-  def createAccount(accountDerivations: AccountDerivationView, user: User, poolName: String, walletName: String): Future[Account] = {
-    getHardWallet(user.pubKey, poolName, walletName).flatMap { w => w.addAccountIfNotExist(accountDerivations) }
-  }
-
-  override def createAccount(accountDerivation: AccountExtendedDerivationView, user: User, poolName: String, walletName: String): Future[Account] = {
-    getHardWallet(user.pubKey, poolName, walletName).flatMap(_.addAccountIfNotExist(accountDerivation))
-  }
-
-  def getCurrency(currencyName: String, poolName: String, pubKey: String): Future[Option[Currency]] = {
-    unsafeGetPool(pubKey, poolName).flatMap { pool => pool.currency(currencyName) }
-  }
-
-  def getCurrencies(poolName: String, pubKey: String): Future[Seq[Currency]] = {
-    unsafeGetPool(pubKey, poolName).flatMap { pool => pool.currencies() }
-  }
-
-
-  def getWallet(walletName: String, poolName: String, pubKey: String): Future[Option[Wallet]] = {
-    unsafeGetPool(pubKey, poolName).flatMap { pool => pool.wallet(walletName) }
-  }
-
-
-  def createWallet(walletName: String, currencyName: String, poolName: String, user: User): Future[Wallet] = {
-    unsafeGetPool(user.pubKey, poolName).flatMap(_.addWalletIfNotExist(walletName, currencyName))
-  }
-
-  def getWalletPool(pubKey: String, poolName: String): Future[Option[Pool]] = {
-    unsafeGetUser(pubKey).flatMap { user => user.pool(poolName)}
-  }
-
-  def getWalletPools(pubKey: String): Future[Seq[Pool]] = {
-    unsafeGetUser(pubKey).flatMap { user => user.pools() }
-  }
-
-  def getWallets(offset: Int, batch: Int, poolName: String, pubKey: String): Future[(Int, Seq[Wallet])] = {
-    unsafeGetPool(pubKey, poolName).flatMap { pool => pool.wallets(offset, batch) }
-  }
-
-  def createWalletPool(user: User, poolName: String, configuration: String): Future[Pool] = {
-    unsafeGetUser(user.pubKey).flatMap { user =>
-      user.addPoolIfNotExit(poolName, configuration)
-    }
-  }
-
-  def deleteWalletPool(user: User, poolName: String): Future[Unit] = {
-    // p.release() TODO once WalletPool#release exists
-    unsafeGetUser(user.pubKey).flatMap { user =>
-      user.deletePool(poolName)
-    }
-  }
-
-  private def getHardWallet(pubKey: String, poolName: String, walletName: String): Future[Wallet] = {
-    getWallet(walletName, poolName, pubKey).flatMap {
-      case Some(w) => Future(w)
-      case None => Future.failed(WalletNotFoundException(walletName))
-    }
-  }
-
-  private def unsafeGetPool(pubKey: String, poolName: String): Future[Pool] = {
-    getWalletPool(pubKey, poolName).flatMap {
-      case Some(p) => Future(p)
-      case None => Future.failed(WalletPoolNotFoundException(poolName))
-    }
-  }
-
   def getUser(pubKey: String): Future[Option[User]] = {
     if (users.contains(pubKey)) { Future.successful(users.get(pubKey)) }
     else { dbDao.getUser(pubKey).map { dto =>
       dto.map( user => users.put(pubKey, newUser(user)))
     }.map { _ => users.get(pubKey) }}
-  }
-
-  private def unsafeGetUser(pubKey: String): Future[User] = {
-    getUser(pubKey).flatMap {
-      case Some(u) => Future(u)
-      case None => Future.failed(UserNotFoundException(pubKey))
-    }
   }
 
   def getUsers: Future[Seq[User]] = {
@@ -167,18 +62,6 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
       info(LogMsgMaker.newInstance("User created").append("user", users(user.pubKey)).toString())
       id
     }
-  }
-
-  def getNextAccountCreationInfo(pubKey: String, poolName: String, walletName: String, accountIndex: Option[Int]): Future[Derivation] = {
-    getHardWallet(pubKey, poolName, walletName).flatMap { wallet => wallet.accountCreationInfo(accountIndex) }
-  }
-
-
-  override def getNextExtendedAccountCreationInfo(pubKey: String,
-                                                  poolName: String,
-                                                  walletName: String,
-                                                  accountIndex: Option[Int]): Future[ExtendedDerivation] = {
-    getHardWallet(pubKey, poolName, walletName).flatMap(_.accountExtendedCreation(accountIndex))
   }
 
   def getPreviousBatchAccountOperations(

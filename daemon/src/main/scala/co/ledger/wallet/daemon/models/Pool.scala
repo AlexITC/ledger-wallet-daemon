@@ -38,7 +38,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     * Obtain wallets by batch size and offset.
     *
     * @param offset the offset the query starts from.
-    * @param batch the size of query.
+    * @param batch  the size of query.
     * @return a tuple of total wallet count and a sequence of wallets from offset to batch size.
     */
   def wallets(offset: Int, batch: Int): Future[(Int, Seq[core.Wallet])] = {
@@ -48,13 +48,13 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
       val size = batch min (count - offset)
       coreP.getWallets(offset, size).map { coreWs =>
         coreWs.asScala.toList
-      }.map ((count, _))
+      }.map((count, _))
     }
   }
 
   private def startListen(wallet: core.Wallet): Future[core.Wallet] = {
     for {
-      _ <- Future (self.registerEventReceiver(new NewBlockEventReceiver(wallet)))
+      _ <- Future(self.registerEventReceiver(new NewBlockEventReceiver(wallet)))
       _ <- wallet.startCacheAndRealTimeObserver
     } yield wallet
   }
@@ -127,7 +127,7 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     * @param eventReceiver the event receiver object need to be registered.
     */
   def registerEventReceiver(eventReceiver: core.EventReceiver): Unit = {
-    if (! eventReceivers.contains(eventReceiver)) {
+    if (!eventReceivers.contains(eventReceiver)) {
       eventReceivers += eventReceiver
       coreP.getEventBus.subscribe(_coreExecutionContext, eventReceiver)
       debug(s"Register $eventReceiver")
