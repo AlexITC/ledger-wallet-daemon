@@ -3,14 +3,14 @@ package co.ledger.wallet.daemon.models
 import java.util.{Date, UUID}
 
 import co.ledger.core
-import co.ledger.wallet.daemon.models.coins.Bitcoin
+import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
+import co.ledger.wallet.daemon.models.Wallet.RichCoreWallet
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, EthereumTransactionView}
+import com.fasterxml.jackson.annotation.JsonProperty
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext.Implicits.global
-import com.fasterxml.jackson.annotation.JsonProperty
-import Wallet.RichCoreWallet
 /**
   * The operation related functions.
   *
@@ -64,6 +64,7 @@ object Operations {
     if (operation.isComplete) {
       curFamily match {
         case core.WalletType.BITCOIN => Some(Bitcoin.newTransactionView(operation.asBitcoinLikeOperation().getTransaction))
+        case core.WalletType.ETHEREUM => Some(EthereumTransactionView(operation.asEthereumLikeOperation().getTransaction))
         case _ => None
       }
     } else None

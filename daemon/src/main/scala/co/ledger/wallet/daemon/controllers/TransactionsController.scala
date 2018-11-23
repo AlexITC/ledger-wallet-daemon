@@ -71,23 +71,23 @@ object TransactionsController {
     def accountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
   }
 
-  trait PushTransactionRequest
+  trait BroadcastTransactionRequest
 
-  case class PublishETHTransactionRequest(
+  case class BroadcastETHTransactionRequest(
                                            raw_transaction: String,
                                            signature: String,
                                            request: Request
-                                         ) extends PushTransactionRequest {
+                                         ) extends BroadcastTransactionRequest {
     def hexTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
     def hexSig: Array[Byte] = HexUtils.valueOf(signature)
   }
 
-  case class PublishBTCTransactionRequest(
+  case class BroadcastBTCTransactionRequest(
                                            raw_transaction: String,
                                            signatures: Seq[String],
                                            pubkeys: Seq[String],
                                            request: Request
-                                         ) extends PushTransactionRequest {
+                                         ) extends BroadcastTransactionRequest {
     def rawTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
     def pairedSignatures: Seq[(Array[Byte], Array[Byte])] = signatures.zipWithIndex.map { case (sig, index) =>
       (HexUtils.valueOf(sig), HexUtils.valueOf(pubkeys(index)))

@@ -60,10 +60,10 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
       account <- wallet.account(accountInfo.accountIndex)
       r <- wallet.getWalletType match {
         case WalletType.BITCOIN =>
-          val req = messageBodyManager.read[PublishBTCTransactionRequest](request)
+          val req = messageBodyManager.read[BroadcastBTCTransactionRequest](request)
           account.get.broadcastBTCTransaction(req.rawTx, req.pairedSignatures, currentHeight, wallet.getCurrency)
         case WalletType.ETHEREUM =>
-          val req = messageBodyManager.read[PublishETHTransactionRequest](request)
+          val req = messageBodyManager.read[BroadcastETHTransactionRequest](request)
           account.get.broadcastETHTransaction(req.hexTx, req.hexSig, wallet.getCurrency)
         case w => Future.failed(CurrencyNotFoundException(w.name()))
       }
