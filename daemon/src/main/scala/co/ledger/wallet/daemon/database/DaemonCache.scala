@@ -156,9 +156,6 @@ trait DaemonCache {
         } yield op
     }
 
-
-  def getHardAccount(user: User, poolName: String, walletName: String, accountIndex: Int): Future[(Pool, Wallet, Account)]
-
   /**
     * Getter of account operations batch instances with specified parameters.
     *
