@@ -252,7 +252,7 @@ trait DaemonCache {
     * @return a Future of `co.ledger.wallet.daemon.models.Wallet` instance created.
     */
   def createWallet(walletName: String, currencyName: String, poolName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Wallet] = {
-    withWalletPool(pubKey, poolName)(_.addWalletIfNotExit(walletName, currencyName))
+    withWalletPool(pubKey, poolName)(_.addWalletIfNotExist(walletName, currencyName))
   }
 
   /**

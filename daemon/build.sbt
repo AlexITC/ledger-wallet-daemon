@@ -20,9 +20,12 @@ lazy val versions = new {
   val postgre   = "9.3-1100-jdbc4"
   val slick     = "3.2.1"
   val sqlite    = "3.7.15-M1"
+  val cats = "1.5.0-RC1"
 }
 
 libraryDependencies ++= Seq(
+  "org.typelevel" %% "cats-core" % versions.cats,
+
   "com.typesafe.slick"  %% "slick"              % versions.slick,
   "com.typesafe.slick"  %% "slick-hikaricp"     % versions.slick,
   "org.postgresql"      %  "postgresql"         % versions.postgre,

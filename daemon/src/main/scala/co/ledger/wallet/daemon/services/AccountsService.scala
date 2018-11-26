@@ -2,18 +2,18 @@ package co.ledger.wallet.daemon.services
 
 import java.util.UUID
 
+import cats.implicits._
+import co.ledger.core
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.database.DaemonCache
 import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
 import co.ledger.wallet.daemon.models.Account._
+import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.{OperationView, PackedOperationsView}
+import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.models._
-import co.ledger.wallet.daemon.utils.Utils._
-import co.ledger.core
-import co.ledger.wallet.daemon.exceptions.WalletNotFoundException
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
 import javax.inject.{Inject, Singleton}
-import Currency._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,24 +22,18 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
   def accounts(user: User, poolName: String, walletName: String): Future[Seq[AccountView]] = {
-    for {
-      walletOption <- defaultDaemonCache.getWallet(walletName, poolName, user.pubKey)
-      wallet <- walletOption.toFuture(WalletNotFoundException(walletName))
-      aws <- defaultDaemonCache.getAccounts(user.pubKey, poolName, walletName).flatMap { accounts =>
-        Future.sequence(accounts.map { account => account.accountView(walletName, wallet.getCurrency.currencyView) })
+    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) { wallet =>
+      wallet.accounts.flatMap { as =>
+        as.toList.map(a => a.accountView(walletName, wallet.getCurrency.currencyView)).sequence[Future, AccountView]
       }
-    } yield aws
+    }
   }
 
   def account(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Option[AccountView]] = {
-    for {
-      walletOption <- defaultDaemonCache.getWallet(walletName, poolName, user.pubKey)
-      wallet <- walletOption.toFuture(WalletNotFoundException(walletName))
-      accountViewOption <- defaultDaemonCache.getAccount(accountIndex, user.pubKey, poolName, walletName).flatMap {
-        case Some(account) => account.accountView(walletName, wallet.getCurrency.currencyView).map(Option(_))
-        case None => Future(None)
-      }
-    } yield accountViewOption
+    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) { wallet =>
+      wallet.account(accountIndex).flatMap(ao =>
+        ao.map(_.accountView(walletName, wallet.getCurrency.currencyView)).sequence)
+    }
   }
 
   def synchronizeAccount(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Seq[SynchronizationResult]] = {
@@ -88,14 +82,12 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
   }
 
   def firstOperation(user: User, accountIndex: Int, poolName: String, walletName: String): Future[Option[OperationView]] = {
-    defaultDaemonCache.withAccountAndWallet(accountIndex, walletName, poolName, user.pubKey){
+    defaultDaemonCache.withAccountAndWallet(accountIndex, walletName, poolName, user.pubKey) {
       case (account, wallet) =>
-        for {
-          optView <- account.firstOperation flatMap {
-            case None => Future(None)
-            case Some(o) => Operations.getView(o, wallet, account).map(Some(_))
-          }
-        } yield optView
+        account.firstOperation flatMap {
+          case None => Future(None)
+          case Some(o) => Operations.getView(o, wallet, account).map(Some(_))
+        }
     }
   }
 
@@ -103,12 +95,12 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
     defaultDaemonCache.getAccountOperation(user.pubKey, uid, accountIndex, poolName, walletName, fullOp)
 
   def createAccount(accountCreationBody: AccountDerivationView, user: User, poolName: String, walletName: String): Future[AccountView] =
-    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey){
+    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) {
       w => defaultDaemonCache.createAccount(accountCreationBody, w).flatMap(_.accountView(walletName, w.getCurrency.currencyView))
     }
 
   def createAccountWithExtendedInfo(derivations: AccountExtendedDerivationView, user: User, poolName: String, walletName: String): Future[AccountView] =
-    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey){
+    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) {
       w => defaultDaemonCache.createAccount(derivations, w).flatMap(_.accountView(walletName, w.getCurrency.currencyView))
     }
 
