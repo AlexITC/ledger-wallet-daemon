@@ -114,10 +114,10 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     info(s"GET account operation $request")
     request.uid match {
       case "first" => accountsService.firstOperation(request.user, request.account_index, request.pool_name, request.wallet_name)
-          .map {
-            case Some(view) => ResponseSerializer.serializeOk(view, response)
-            case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account is empty"), response)
-          }
+        .map {
+          case Some(view) => ResponseSerializer.serializeOk(view, response)
+          case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account is empty"), response)
+        }
       case _ => accountsService.accountOperation(request.user, request.uid, request.account_index, request.pool_name, request.wallet_name, request.full_op)
         .map {
           case Some(view) => ResponseSerializer.serializeOk(view, response)
@@ -204,16 +204,19 @@ object AccountsController {
   }
 
   case class HistoryResponse(balances: List[Long], operationCounts: List[Map[OperationType, Int]])
+
   case class HistoryRequest(
-                                    @RouteParam override val pool_name: String,
-                                    @RouteParam override val wallet_name: String,
-                                    @RouteParam override val account_index: Int,
-                                    @QueryParam start: String, @QueryParam end: String, @QueryParam timeInterval: String,
-                                    request: Request
-                                  ) extends BaseSingleAccountRequest(request) {
+                             @RouteParam override val pool_name: String,
+                             @RouteParam override val wallet_name: String,
+                             @RouteParam override val account_index: Int,
+                             @QueryParam start: String, @QueryParam end: String, @QueryParam timeInterval: String,
+                             request: Request
+                           ) extends BaseSingleAccountRequest(request) {
 
     def timePeriod: TimePeriod = TimePeriod.valueOf(timeInterval)
+
     def startDate: Date = DATE_FORMATTER.parse(start)
+
     def endDate: Date = DATE_FORMATTER.parse(end)
 
     @MethodValidation
