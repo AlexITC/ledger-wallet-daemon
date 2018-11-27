@@ -57,13 +57,14 @@ object EthereumTransactionView {
 }
 
 case class UnsignedEthereumTransactionView(
-                                    @JsonProperty("hash") hash: String,
-                                    @JsonProperty("receiver") receiver: String,
-                                    @JsonProperty("sender") sender: String,
-                                    @JsonProperty("value") value: Long,
-                                    @JsonProperty("gas_price") gasPrice: Long,
-                                    @JsonProperty("gas_limit") gasLimit: Long
-                                  ) extends TransactionView
+                                            @JsonProperty("hash") hash: String,
+                                            @JsonProperty("receiver") receiver: String,
+                                            @JsonProperty("sender") sender: String,
+                                            @JsonProperty("value") value: Long,
+                                            @JsonProperty("gas_price") gasPrice: Long,
+                                            @JsonProperty("gas_limit") gasLimit: Long,
+                                            @JsonProperty("raw_transaction") rawTransaction: String
+                                          ) extends TransactionView
 
 object UnsignedEthereumTransactionView {
   def apply(tx: EthereumLikeTransaction): UnsignedEthereumTransactionView = {
@@ -74,6 +75,7 @@ object UnsignedEthereumTransactionView {
       tx.getValue.toLong,
       tx.getGasPrice.toLong,
       tx.getGasLimit.toLong,
+      HexUtils.valueOf(tx.serialize())
     )
   }
 }
