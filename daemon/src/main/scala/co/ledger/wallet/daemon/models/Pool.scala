@@ -11,7 +11,7 @@ import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.libledger_core.crypto.SecureRandomRNG
 import co.ledger.wallet.daemon.libledger_core.debug.NoOpLogPrinter
 import co.ledger.wallet.daemon.libledger_core.filesystem.ScalaPathResolver
-import co.ledger.wallet.daemon.schedulers.observers.{NewBlockEventReceiver, SynchronizationResult}
+import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
 import co.ledger.wallet.daemon.services.LogMsgMaker
 import co.ledger.wallet.daemon.utils.{HexUtils, Utils}
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -54,7 +54,6 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
   private def startListen(wallet: core.Wallet): Future[core.Wallet] = {
     for {
-      _ <- Future(self.registerEventReceiver(new NewBlockEventReceiver(wallet)))
       _ <- wallet.startCacheAndRealTimeObserver
     } yield wallet
   }

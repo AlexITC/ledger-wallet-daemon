@@ -202,7 +202,11 @@ object Account extends Logging {
     val receiver: core.EventReceiver = new SynchronizationEventReceiver(a.getIndex, walletName, poolName, promise)
     a.synchronize().subscribe(LedgerCoreExecutionContext(ec), receiver)
     debug(s"Synchronize $a")
-    promise.future
+    val f = promise.future
+    f onComplete {
+      case _ => a.getEventBus.unsubscribe(receiver)
+    }
+    f
   }
 
   def startRealTimeObserver(a: core.Account): Unit = {
