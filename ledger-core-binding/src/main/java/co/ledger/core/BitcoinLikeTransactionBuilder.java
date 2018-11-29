@@ -93,11 +93,7 @@ public abstract class BitcoinLikeTransactionBuilder {
     /** Reset the current instance to its initial state */
     public abstract void reset();
 
-    /**
-     * Parsing unsigned transaction
-     * parsing a tx might change depending on block height we are on (if an update is effective starting from a given hight)
-     */
-    public static native BitcoinLikeTransaction parseRawUnsignedTransaction(Currency currency, byte[] rawTransaction, Integer currentBlockHeight);
+    public static native BitcoinLikeTransaction parseRawUnsignedTransaction(Currency currency, byte[] rawTransaction);
 
     private static final class CppProxy extends BitcoinLikeTransactionBuilder
     {

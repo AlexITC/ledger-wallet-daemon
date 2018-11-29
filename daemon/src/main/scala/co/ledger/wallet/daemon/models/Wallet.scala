@@ -119,6 +119,8 @@ object Wallet extends Logging {
   private def accountCreationEpilogue(coreAccount: Future[core.Account], accountIndex: Int, w: core.Wallet)(implicit ec: ExecutionContext): Future[core.Account] = {
     coreAccount.map { coreA =>
       info(LogMsgMaker.newInstance("Account created").append("index", coreA.getIndex).append("wallet_name", w.getName).toString())
+      // TODO do we need to listen account here?
+      // startListenAccount(coreA)
       coreA
     }.recoverWith {
       case e: co.ledger.core.implicits.InvalidArgumentException =>
