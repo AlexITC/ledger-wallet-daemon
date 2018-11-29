@@ -12,6 +12,8 @@ public final class EthereumLikeNetworkParameters {
 
     /*package*/ final String MessagePrefix;
 
+    /*package*/ final byte[] ChainID;
+
     /*package*/ final byte[] XPUBVersion;
 
     /*package*/ final ArrayList<String> AdditionalEIPs;
@@ -21,11 +23,13 @@ public final class EthereumLikeNetworkParameters {
     public EthereumLikeNetworkParameters(
             String Identifier,
             String MessagePrefix,
+            byte[] ChainID,
             byte[] XPUBVersion,
             ArrayList<String> AdditionalEIPs,
             long TimestampDelay) {
         this.Identifier = Identifier;
         this.MessagePrefix = MessagePrefix;
+        this.ChainID = ChainID;
         this.XPUBVersion = XPUBVersion;
         this.AdditionalEIPs = AdditionalEIPs;
         this.TimestampDelay = TimestampDelay;
@@ -37,6 +41,10 @@ public final class EthereumLikeNetworkParameters {
 
     public String getMessagePrefix() {
         return MessagePrefix;
+    }
+
+    public byte[] getChainID() {
+        return ChainID;
     }
 
     public byte[] getXPUBVersion() {
@@ -56,6 +64,7 @@ public final class EthereumLikeNetworkParameters {
         return "EthereumLikeNetworkParameters{" +
                 "Identifier=" + Identifier +
                 "," + "MessagePrefix=" + MessagePrefix +
+                "," + "ChainID=" + ChainID +
                 "," + "XPUBVersion=" + XPUBVersion +
                 "," + "AdditionalEIPs=" + AdditionalEIPs +
                 "," + "TimestampDelay=" + TimestampDelay +

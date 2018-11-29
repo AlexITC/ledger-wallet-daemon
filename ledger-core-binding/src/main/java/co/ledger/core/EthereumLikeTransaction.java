@@ -38,11 +38,19 @@ public abstract class EthereumLikeTransaction {
     /** Serialize the transaction to its raw format. */
     public abstract byte[] serialize();
 
+    /** Set signature of transaction, when a signature is set serialize method gives back serialized Tx */
+    public abstract void setSignature(byte[] rSignature, byte[] sSignature);
+
+    public abstract void setDERSignature(byte[] signature);
+
     /**
      * Get the time when the transaction was issued or the time of the block including
      * this transaction
      */
     public abstract Date getDate();
+
+    /** Get block to which transaction belongs (was mined in) */
+    public abstract EthereumLikeBlock getBlock();
 
     private static final class CppProxy extends EthereumLikeTransaction
     {
@@ -148,11 +156,35 @@ public abstract class EthereumLikeTransaction {
         private native byte[] native_serialize(long _nativeRef);
 
         @Override
+        public void setSignature(byte[] rSignature, byte[] sSignature)
+        {
+            assert !this.destroyed.get() : "trying to use a destroyed object";
+            native_setSignature(this.nativeRef, rSignature, sSignature);
+        }
+        private native void native_setSignature(long _nativeRef, byte[] rSignature, byte[] sSignature);
+
+        @Override
+        public void setDERSignature(byte[] signature)
+        {
+            assert !this.destroyed.get() : "trying to use a destroyed object";
+            native_setDERSignature(this.nativeRef, signature);
+        }
+        private native void native_setDERSignature(long _nativeRef, byte[] signature);
+
+        @Override
         public Date getDate()
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getDate(this.nativeRef);
         }
         private native Date native_getDate(long _nativeRef);
+
+        @Override
+        public EthereumLikeBlock getBlock()
+        {
+            assert !this.destroyed.get() : "trying to use a destroyed object";
+            return native_getBlock(this.nativeRef);
+        }
+        private native EthereumLikeBlock native_getBlock(long _nativeRef);
     }
 }
