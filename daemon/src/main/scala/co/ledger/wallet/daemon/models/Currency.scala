@@ -24,7 +24,7 @@ object Currency {
 
   def parseUnsignedBTCTransaction(currency: core.Currency)(rawTx: Array[Byte], currentHeight: Long): Either[String, core.BitcoinLikeTransaction] =
     currency.getWalletType match {
-      case core.WalletType.BITCOIN => Right(core.BitcoinLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx))
+      case core.WalletType.BITCOIN => Right(core.BitcoinLikeTransactionBuilder.parseRawUnsignedTransaction(currency, rawTx, currentHeight.toInt))
       case w => Left(s"$w is not Bitcoin")
     }
 
