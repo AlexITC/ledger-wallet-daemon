@@ -56,6 +56,11 @@ class DaemonExceptionMapper @Inject()(response: ResponseBuilder)
           Map("response" -> ssnme.getMessage, "tx_size" -> ssnme.txSize, "sig_size" -> ssnme.signatureSize),
           response
         )
+      case enfe: ERC20NotFoundException =>
+        ResponseSerializer.serializeBadRequest(
+          Map("response" -> enfe.getMessage, "contract" -> enfe.contract),
+          response
+        )
     }
   }
 }

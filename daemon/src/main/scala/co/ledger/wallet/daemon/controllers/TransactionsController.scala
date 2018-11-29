@@ -107,9 +107,9 @@ object TransactionsController {
                                          amount: Long,
                                          gas_limit: Long,
                                          gas_price: Long,
-                                         input: String
+                                         contract: Option[String]
                                         ) extends CreateTransactionRequest {
-    override def transactionInfo: TransactionInfo = ETHTransactionInfo(recipient, amount, gas_limit, gas_price, HexUtils.valueOf(input))
+    override def transactionInfo: TransactionInfo = ETHTransactionInfo(recipient, amount, gas_limit, gas_price, contract)
   }
 
   case class CreateBTCTransactionRequest(recipient: String,
@@ -133,6 +133,5 @@ object TransactionsController {
     lazy val feeMethod: Option[FeeMethod] = feeLevel.map { level => FeeMethod.from(level) }
   }
 
-  case class ETHTransactionInfo(recipient: String, amount: Long, gasLimit: Long, gasPrice: Long, input: Array[Byte]) extends TransactionInfo
-
+  case class ETHTransactionInfo(recipient: String, amount: Long, gasLimit: Long, gasPrice: Long, contract: Option[String]) extends TransactionInfo
 }

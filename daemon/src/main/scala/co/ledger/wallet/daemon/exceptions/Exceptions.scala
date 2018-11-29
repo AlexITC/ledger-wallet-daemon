@@ -2,6 +2,7 @@ package co.ledger.wallet.daemon.exceptions
 
 import java.util.UUID
 
+case class ERC20NotFoundException(contract: String) extends DaemonException(s"No ERC20 token $contract in your account")
 
 case class AccountNotFoundException(accountIndex: Int) extends DaemonException(s"Account with index $accountIndex doesn't exist")
 

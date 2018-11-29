@@ -3,12 +3,12 @@ package co.ledger.wallet.daemon.models
 import java.util.{Calendar, Date}
 
 import co.ledger.core
+import co.ledger.core._
 import co.ledger.core.implicits.{UnsupportedOperationException, _}
-import co.ledger.core.{BitcoinLikePickingStrategy, OperationOrderKey, WalletType}
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.controllers.TransactionsController.{BTCTransactionInfo, ETHTransactionInfo, TransactionInfo}
-import co.ledger.wallet.daemon.exceptions.SignatureSizeUnmatchException
+import co.ledger.wallet.daemon.exceptions.{ERC20NotFoundException, SignatureSizeUnmatchException}
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
@@ -115,14 +115,26 @@ object Account extends Logging {
           v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte.toLong)
         } yield v
       case (ti: ETHTransactionInfo, WalletType.ETHEREUM) => {
-        for {
-          tx <- a.asEthereumLikeAccount().buildTransaction()
-            .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
-            .setGasLimit(c.convertAmount(ti.gasLimit))
-            .setGasPrice(c.convertAmount(ti.gasPrice))
-            .setInputData(ti.input)
-            .build()
-        } yield UnsignedEthereumTransactionView(tx)
+        ti.contract match {
+          case Some(contract) =>
+            a.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getToken.getContractAddress == contract) match {
+              case Some(erc20Account) =>
+                val inputData = erc20Account.getTransferToAddressData(c.convertAmount(ti.amount), ti.recipient)
+                a.asEthereumLikeAccount().buildTransaction()
+                  .sendToAddress(c.convertAmount(0), contract)
+                  .setGasLimit(c.convertAmount(ti.gasLimit))
+                  .setGasPrice(c.convertAmount(ti.gasPrice))
+                  .setInputData(inputData)
+                  .build().map(UnsignedEthereumTransactionView(_))
+              case None => Future.failed(ERC20NotFoundException(contract))
+            }
+          case None =>
+            a.asEthereumLikeAccount().buildTransaction()
+              .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
+              .setGasLimit(c.convertAmount(ti.gasLimit))
+              .setGasPrice(c.convertAmount(ti.gasPrice))
+              .build().map(UnsignedEthereumTransactionView(_))
+        }
       }
       case _ => Future.failed(new UnsupportedOperationException("Account type not supported, can't create transaction"))
     }
