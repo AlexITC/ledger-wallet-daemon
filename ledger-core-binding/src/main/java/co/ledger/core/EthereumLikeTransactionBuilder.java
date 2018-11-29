@@ -50,6 +50,8 @@ public abstract class EthereumLikeTransactionBuilder {
 
     public static native EthereumLikeTransaction parseRawUnsignedTransaction(Currency currency, byte[] rawTransaction);
 
+    public static native EthereumLikeTransaction parseRawSignedTransaction(Currency currency, byte[] rawTransaction);
+
     private static final class CppProxy extends EthereumLikeTransactionBuilder
     {
         private final long nativeRef;
