@@ -105,9 +105,9 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     coreP.getCurrency(currencyName).flatMap { coreC =>
       // TEST CODE DO NOT COMMIT
       val walletConfig = core.DynamicObject.newInstance()
-//      walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", "http://eth-mainnet.explorers.dev.aws.ledger.fr")
-//      walletConfig.putString("BLOCKCHAIN_OBSERVER_WS_ENDPOINT", "ws://notification.explorers.dev.aws.ledger.fr:9000/ws/{}")
-//      walletConfig.putString("BLOCKCHAIN_OBSERVER_ENGINE", "LEDGER_API")
+      walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", "http://eth-mainnet.explorers.dev.aws.ledger.fr")
+      walletConfig.putString("BLOCKCHAIN_OBSERVER_WS_ENDPOINT", "ws://notification.explorers.dev.aws.ledger.fr:9000/ws/{}")
+      walletConfig.putString("BLOCKCHAIN_OBSERVER_ENGINE", "LEDGER_API")
 
       coreP.createWallet(walletName, coreC, walletConfig).flatMap { coreW =>
         info(LogMsgMaker.newInstance("Wallet created").append("name", walletName).append("pool_name", name).append("currency_name", currencyName).toString())

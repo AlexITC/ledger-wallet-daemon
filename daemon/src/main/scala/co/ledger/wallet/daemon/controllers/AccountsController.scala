@@ -98,12 +98,38 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/operations") { request: OperationsRequest =>
     info(s"GET account operations $request")
-    accountsService.accountOperations(
-      request.user,
+    request.contract match {
+      case Some(contract) =>
+        accountsService.getERC20Operations(
+          request.account_index,
+          request.user,
+          request.pool_name,
+          request.wallet_name,
+          contract
+        )
+      case None =>
+        accountsService.accountOperations(
+          request.user,
+          request.account_index,
+          request.pool_name,
+          request.wallet_name,
+          OperationQueryParams(request.previous, request.next, request.batch, request.full_op))
+    }
+  }
+
+  /**
+    * End point queries for account balance
+    *
+    */
+  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/balance") { request: BalanceRequest =>
+    info(s"GET account balance $request")
+    accountsService.getBalance(
       request.account_index,
+      request.user,
       request.pool_name,
       request.wallet_name,
-      OperationQueryParams(request.previous, request.next, request.batch, request.full_op))
+      request.contract
+    )
   }
 
   /**
@@ -264,6 +290,7 @@ object AccountsController {
                                 @QueryParam previous: Option[UUID],
                                 @QueryParam batch: Int = DEFAULT_BATCH,
                                 @QueryParam full_op: Int = DEFAULT_OPERATION_MODE,
+                                @QueryParam contract: Option[String],
                                 request: Request
                               ) extends BaseSingleAccountRequest(request) {
 
@@ -280,6 +307,14 @@ object AccountsController {
       s"batch: $batch, " +
       s"full_op: $full_op)"
   }
+
+  case class BalanceRequest(
+                             @RouteParam override val pool_name: String,
+                             @RouteParam override val wallet_name: String,
+                             @RouteParam override val account_index: Int,
+                             @QueryParam contract: Option[String],
+                             request: Request
+                           ) extends BaseSingleAccountRequest(request)
 
   case class OperationRequest(
                                @RouteParam override val pool_name: String,
