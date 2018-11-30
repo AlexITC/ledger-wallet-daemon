@@ -2,7 +2,7 @@ package co.ledger.wallet.daemon.models.coins
 
 import java.util.Date
 
-import co.ledger.core.{EthereumLikeBlock, EthereumLikeNetworkParameters, EthereumLikeTransaction}
+import co.ledger.core.{ERC20LikeOperation, EthereumLikeBlock, EthereumLikeNetworkParameters, EthereumLikeTransaction}
 import co.ledger.wallet.daemon.models.coins.Coin.{BlockView, NetworkParamsView, TransactionView}
 import co.ledger.wallet.daemon.utils.HexUtils
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -83,6 +83,26 @@ object UnsignedEthereumTransactionView {
       tx.getGasPrice.toLong,
       tx.getGasLimit.toLong,
       HexUtils.valueOf(tx.serialize())
+    )
+  }
+}
+
+case class ERC20OperationView(
+                             @JsonProperty("sender") sender: String,
+                             @JsonProperty("receiver") receiver: String,
+                             @JsonProperty("value") value: Long,
+                             @JsonProperty("gas_price") gasPrice: Long,
+                             @JsonProperty("gas_limit") gasLimit: Long
+                             )
+
+object ERC20OperationView {
+  def apply(op: ERC20LikeOperation): ERC20OperationView = {
+    apply(
+      op.getSender,
+      op.getReceiver,
+      op.getValue.toLong,
+      op.getGasPrice.toLong,
+      op.getGasLimit.toLong
     )
   }
 }

@@ -38,20 +38,8 @@ object Utils {
     def asArrayList : java.util.ArrayList[T] = new java.util.ArrayList[T](input.asJava)
   }
 
-  implicit class RichOption[T](val input: Option[T]) extends AnyVal {
-    def toFuture(t: Throwable): ScalaFuture[T] = input match {
-      case Some(v) => ScalaFuture.successful(v)
-      case None => ScalaFuture.failed(t)
-    }
-  }
-
   def newConcurrentSet[T]: mutable.Set[T] = {
     java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap[T, java.lang.Boolean]()).asScala
-  }
-
-  def optionSequence[T](input: Option[ScalaFuture[T]])(implicit ec: ExecutionContext): ScalaFuture[Option[T]] = input match {
-    case None => ScalaFuture(None)
-    case Some(in) => in.map ( t => Some(t))
   }
 
 }

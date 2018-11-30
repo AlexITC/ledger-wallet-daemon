@@ -19,6 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 object Wallet extends Logging {
+
   implicit class RichCoreWallet(val w: core.Wallet) extends AnyVal {
 
     def lastBlockHeight(implicit ec: ExecutionContext): Future[Long] = Wallet.lastBlockHeight(w)
@@ -119,8 +120,6 @@ object Wallet extends Logging {
   private def accountCreationEpilogue(coreAccount: Future[core.Account], accountIndex: Int, w: core.Wallet)(implicit ec: ExecutionContext): Future[core.Account] = {
     coreAccount.map { coreA =>
       info(LogMsgMaker.newInstance("Account created").append("index", coreA.getIndex).append("wallet_name", w.getName).toString())
-      // TODO do we need to listen account here?
-      // startListenAccount(coreA)
       coreA
     }.recoverWith {
       case e: co.ledger.core.implicits.InvalidArgumentException =>
@@ -128,11 +127,11 @@ object Wallet extends Logging {
       case _: co.ledger.core.implicits.AccountAlreadyExistsException =>
         for {
           _ <- Future(warn(LogMsgMaker.newInstance("Account already exist").append("index", accountIndex).append("wallet_name", w.getName).toString()))
-          a <- w.getAccount(accountIndex).map { coreA =>
-            startListenAccount(coreA)
-            coreA
-          }
+          a <- w.getAccount(accountIndex)
         } yield a
+    }.map { coreA =>
+      startListenAccount(coreA)
+      coreA
     }
   }
 
@@ -147,7 +146,9 @@ object Wallet extends Logging {
   def stopRealTimeObserver(w: core.Wallet)(implicit ec: ExecutionContext): Future[Unit] = {
     accounts(w).map { as =>
       debug(LogMsgMaker.newInstance("Stop real time observer").append("wallet", w).append("account_count", as.size).toString())
-      as.foreach { _.stopRealTimeObserver() }
+      as.foreach {
+        _.stopRealTimeObserver()
+      }
     }
   }
 

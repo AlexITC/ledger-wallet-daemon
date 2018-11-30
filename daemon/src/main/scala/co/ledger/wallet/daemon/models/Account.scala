@@ -27,6 +27,9 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 object Account extends Logging {
 
   implicit class RichCoreAccount(val a: core.Account) extends AnyVal {
+    def erc20Balance(contract: String): Either[Exception, Long] = Account.erc20Balance(contract, a)
+
+    def erc20Operation(contract: String): Either[Exception, List[core.ERC20LikeOperation]] = Account.erc20Operation(contract, a)
     def balance(implicit ec: ExecutionContext): Future[Long] = Account.balance(a)
 
     def balances(start: String, end: String, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Long]] = Account.balances(start, end, timePeriod, a)
@@ -62,6 +65,22 @@ object Account extends Logging {
     debug(s"Account ${a.getIndex}, balance: ${b.toLong}")
     b.toLong
   }
+
+  def withERC20Account[T](contract: String, a: core.Account)(f: core.ERC20LikeAccount => T): Either[Exception, T] = {
+    a.getWalletType match {
+      case WalletType.ETHEREUM =>
+        a.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getToken.getContractAddress == contract) match {
+          case Some(t) => Right(f(t))
+          case None => Left(ERC20NotFoundException(contract))
+        }
+      case _ => Left(new UnsupportedOperationException("Account doesn't support ERC20 token"))
+    }
+  }
+
+  def erc20Balance(contract: String, a: core.Account): Either[Exception, Long] = withERC20Account(contract, a)(_.getBalance.intValue().toLong)
+
+  def erc20Operation(contract: String, a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
+    withERC20Account(contract, a)(_.getOperations.asScala.toList)
 
   def operationCounts(a: core.Account)(implicit ex: ExecutionContext): Future[Map[core.OperationType, Int]] =
     a.queryOperations().addOrder(OperationOrderKey.DATE, true).partial().execute().map { os =>

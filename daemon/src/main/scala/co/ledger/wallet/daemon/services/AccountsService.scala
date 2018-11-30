@@ -12,6 +12,7 @@ import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.{OperationView, PackedOperationsView}
 import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.models._
+import co.ledger.wallet.daemon.models.coins.ERC20OperationView
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
 import javax.inject.{Inject, Singleton}
 
@@ -43,6 +44,15 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
   def getAccount(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Option[core.Account]] = {
     defaultDaemonCache.getAccount(accountIndex, user.pubKey, poolName, walletName)
   }
+
+  def getBalance(accountIndex: Int, user: User, poolName: String, walletName:String, contract: Option[String]): Future[Long] =
+    defaultDaemonCache.withAccount(accountIndex, walletName, poolName, user.pubKey)(a => contract match {
+      case Some(c) => a.erc20Balance(c).liftTo[Future]
+      case None => a.balance
+    })
+
+  def getERC20Operations(accountIndex: Int, user: User, poolName: String, walletName: String, contract: String): Future[List[ERC20OperationView]] =
+    defaultDaemonCache.withAccount(accountIndex, walletName, poolName, user.pubKey)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
 
   def accountFreshAddresses(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Seq[FreshAddressView]] = {
     defaultDaemonCache.getFreshAddresses(accountIndex, user.pubKey, poolName, walletName)
