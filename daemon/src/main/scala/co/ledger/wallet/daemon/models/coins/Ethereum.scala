@@ -100,9 +100,10 @@ object ERC20OperationView {
     apply(
       op.getSender,
       op.getReceiver,
-      op.getValue.toLong,
-      op.getGasPrice.toLong,
-      op.getGasLimit.toLong
+      // TODO int is dangerous here, find a way to Long
+      op.getValue.intValue(),
+      op.getGasPrice.intValue(),
+      op.getGasLimit.intValue()
     )
   }
 }

@@ -12,16 +12,16 @@ public abstract class ERC20LikeOperation {
     public abstract String getHash();
 
     /** Get the nonce of the transaction : sequence number issued by originating EOA */
-    public abstract int getNonce();
+    public abstract BigInt getNonce();
 
     /** Get Gas price (in wei) */
-    public abstract Amount getGasPrice();
+    public abstract BigInt getGasPrice();
 
     /** Get start gas (in wei) : maximum amount of gas the originator is willing to pay */
-    public abstract Amount getGasLimit();
+    public abstract BigInt getGasLimit();
 
     /** Used gas (in wei) : used gas during this transaction */
-    public abstract Amount getUsedGas();
+    public abstract BigInt getUsedGas();
 
     /** Get source ETH address */
     public abstract String getSender();
@@ -30,7 +30,7 @@ public abstract class ERC20LikeOperation {
     public abstract String getReceiver();
 
     /** Get amount of ether to send */
-    public abstract Amount getValue();
+    public abstract BigInt getValue();
 
     /** Get binary data payload */
     public abstract byte[] getData();
@@ -41,8 +41,10 @@ public abstract class ERC20LikeOperation {
      */
     public abstract Date getTime();
 
+    /** Get operation type : whether it is a SEND or RECEIVE */
     public abstract OperationType getOperationType();
 
+    /** Get opration status : pending or confirmed */
     public abstract int getStatus();
 
     private static final class CppProxy extends ERC20LikeOperation
@@ -77,36 +79,36 @@ public abstract class ERC20LikeOperation {
         private native String native_getHash(long _nativeRef);
 
         @Override
-        public int getNonce()
+        public BigInt getNonce()
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getNonce(this.nativeRef);
         }
-        private native int native_getNonce(long _nativeRef);
+        private native BigInt native_getNonce(long _nativeRef);
 
         @Override
-        public Amount getGasPrice()
+        public BigInt getGasPrice()
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getGasPrice(this.nativeRef);
         }
-        private native Amount native_getGasPrice(long _nativeRef);
+        private native BigInt native_getGasPrice(long _nativeRef);
 
         @Override
-        public Amount getGasLimit()
+        public BigInt getGasLimit()
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getGasLimit(this.nativeRef);
         }
-        private native Amount native_getGasLimit(long _nativeRef);
+        private native BigInt native_getGasLimit(long _nativeRef);
 
         @Override
-        public Amount getUsedGas()
+        public BigInt getUsedGas()
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getUsedGas(this.nativeRef);
         }
-        private native Amount native_getUsedGas(long _nativeRef);
+        private native BigInt native_getUsedGas(long _nativeRef);
 
         @Override
         public String getSender()
@@ -125,12 +127,12 @@ public abstract class ERC20LikeOperation {
         private native String native_getReceiver(long _nativeRef);
 
         @Override
-        public Amount getValue()
+        public BigInt getValue()
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getValue(this.nativeRef);
         }
-        private native Amount native_getValue(long _nativeRef);
+        private native BigInt native_getValue(long _nativeRef);
 
         @Override
         public byte[] getData()
