@@ -66,8 +66,8 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
     */
   def wallet(walletName: String): Future[Option[core.Wallet]] = {
     coreP.getWallet(walletName).map(Option(_)).recover {
-          case _: co.ledger.core.implicits.WalletNotFoundException => None
-        }
+      case _: co.ledger.core.implicits.WalletNotFoundException => None
+    }
   }
 
   /**
@@ -103,12 +103,13 @@ class Pool(private val coreP: core.WalletPool, val id: Long) extends Logging {
 
   def addWalletIfNotExist(walletName: String, currencyName: String): Future[core.Wallet] = {
     coreP.getCurrency(currencyName).flatMap { coreC =>
-      // TEST CODE DO NOT COMMIT
       val walletConfig = core.DynamicObject.newInstance()
-      walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", "http://eth-mainnet.explorers.dev.aws.ledger.fr")
-      walletConfig.putString("BLOCKCHAIN_OBSERVER_WS_ENDPOINT", "ws://notification.explorers.dev.aws.ledger.fr:9000/ws/{}")
-      walletConfig.putString("BLOCKCHAIN_OBSERVER_ENGINE", "LEDGER_API")
-
+      DaemonConfiguration.explorerApiAddresses.get(coreC.getWalletType).foreach { addr =>
+        walletConfig.putString("BLOCKCHAIN_EXPLORER_API_ENDPOINT", addr)
+      }
+      DaemonConfiguration.explorerWebsocketAddresses.get(coreC.getWalletType).foreach { ws =>
+        walletConfig.putString("BLOCKCHAIN_OBSERVER_WS_ENDPOINT", ws)
+      }
       coreP.createWallet(walletName, coreC, walletConfig).flatMap { coreW =>
         info(LogMsgMaker.newInstance("Wallet created").append("name", walletName).append("pool_name", name).append("currency_name", currencyName).toString())
         startListen(coreW)
@@ -214,8 +215,8 @@ object Pool {
 
   def newCoreInstance(poolDto: PoolDto): Future[core.WalletPool] = {
     val poolConfig = core.DynamicObject.newInstance()
-//    poolConfig.putString("BLOCKCHAIN_OBSERVER_WS_ENDPOINT", "ws://notification.explorers.dev.aws.ledger.fr:9000/ws/{}")
-//    poolConfig.putString("BLOCKCHAIN_OBSERVER_ENGINE", "LEDGER_API")
+    //    poolConfig.putString("BLOCKCHAIN_OBSERVER_WS_ENDPOINT", "ws://notification.explorers.dev.aws.ledger.fr:9000/ws/{}")
+    //    poolConfig.putString("BLOCKCHAIN_OBSERVER_ENGINE", "LEDGER_API")
     core.WalletPoolBuilder.createInstance()
       .setHttpClient(ClientFactory.httpClient)
       .setWebsocketClient(ClientFactory.webSocketClient)
