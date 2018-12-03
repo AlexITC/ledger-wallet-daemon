@@ -55,7 +55,7 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
     defaultDaemonCache.withAccount(accountIndex, walletName, poolName, user.pubKey)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
 
   def accountFreshAddresses(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Seq[FreshAddressView]] = {
-    defaultDaemonCache.getFreshAddresses(accountIndex, user.pubKey, poolName, walletName)
+    defaultDaemonCache.getFreshAddresses(accountIndex, poolName, walletName, user.pubKey)
   }
 
   def accountDerivationPath(accountIndex: Int, user: User, poolName: String, walletName: String): Future[String] = {

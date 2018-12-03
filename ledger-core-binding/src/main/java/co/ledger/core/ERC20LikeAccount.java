@@ -16,7 +16,9 @@ public abstract class ERC20LikeAccount {
 
     public abstract ArrayList<ERC20LikeOperation> getOperations();
 
-    public abstract byte[] getTransferToAddressData(Amount amount, String address);
+    public abstract byte[] getTransferToAddressData(BigInt amount, String address);
+
+    public abstract OperationQuery queryOperations();
 
     private static final class CppProxy extends ERC20LikeAccount
     {
@@ -74,11 +76,19 @@ public abstract class ERC20LikeAccount {
         private native ArrayList<ERC20LikeOperation> native_getOperations(long _nativeRef);
 
         @Override
-        public byte[] getTransferToAddressData(Amount amount, String address)
+        public byte[] getTransferToAddressData(BigInt amount, String address)
         {
             assert !this.destroyed.get() : "trying to use a destroyed object";
             return native_getTransferToAddressData(this.nativeRef, amount, address);
         }
-        private native byte[] native_getTransferToAddressData(long _nativeRef, Amount amount, String address);
+        private native byte[] native_getTransferToAddressData(long _nativeRef, BigInt amount, String address);
+
+        @Override
+        public OperationQuery queryOperations()
+        {
+            assert !this.destroyed.get() : "trying to use a destroyed object";
+            return native_queryOperations(this.nativeRef);
+        }
+        private native OperationQuery native_queryOperations(long _nativeRef);
     }
 }
