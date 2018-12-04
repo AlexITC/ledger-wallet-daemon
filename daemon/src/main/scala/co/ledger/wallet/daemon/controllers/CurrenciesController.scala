@@ -1,7 +1,7 @@
 package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithPoolInfo}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.services.CurrenciesService
 import com.twitter.finagle.http.Request
@@ -27,7 +27,7 @@ class CurrenciesController @Inject()(currenciesService: CurrenciesService) exten
     val poolName = request.pool_name
     val currencyName = request.currency_name
     info(s"GET currency $request")
-    currenciesService.currency(currencyName, poolName, request.user.pubKey).map {
+    currenciesService.currency(currencyName, request.poolInfo).map {
       case Some(currency) => ResponseSerializer.serializeOk(currency, response)
       case None => ResponseSerializer.serializeNotFound(
         Map("response" -> "Currency not support", "currency_name" -> currencyName), response)
@@ -41,7 +41,7 @@ class CurrenciesController @Inject()(currenciesService: CurrenciesService) exten
   get("/pools/:pool_name/currencies") { request: GetCurrenciesRequest =>
     val poolName = request.pool_name
     info(s"GET currencies $request")
-    currenciesService.currencies(poolName, request.user.pubKey)
+    currenciesService.currencies(request.poolInfo)
   }
 
   /**
@@ -50,7 +50,7 @@ class CurrenciesController @Inject()(currenciesService: CurrenciesService) exten
     *
     */
   get("/pools/:pool_name/currencies/:currency_name/validate") { request: AddressValidatingRequest =>
-    currenciesService.validateAddress(request.address, request.currency_name, request.pool_name, request.user.pubKey)
+    currenciesService.validateAddress(request.address, request.currency_name, request.poolInfo)
   }
 
 }
@@ -60,27 +60,23 @@ object CurrenciesController {
   case class AddressValidatingRequest(@RouteParam pool_name: String,
                                       @RouteParam currency_name: String,
                                       @QueryParam address: String,
-                                      request: Request) extends RequestWithUser
+                                      request: Request) extends RequestWithUser with WithPoolInfo
 
   case class GetCurrenciesRequest(
                                    @RouteParam pool_name: String,
                                    request: Request
-                                 ) extends RequestWithUser {
+                                 ) extends RequestWithUser with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
-
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name)"
   }
 
   case class GetCurrencyRequest(
                                  @RouteParam currency_name: String,
                                  @RouteParam pool_name: String,
                                  request: Request
-                               ) extends RequestWithUser {
+                               ) extends RequestWithUser with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
-
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name, currency_name: $currency_name)"
   }
 
 }

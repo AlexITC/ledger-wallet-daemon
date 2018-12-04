@@ -65,14 +65,9 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
     }
   }
 
-  def getPreviousBatchAccountOperations(
-                                         user: User,
-                                         accountIndex: Int,
-                                         poolName: String,
-                                         walletName: String,
-                                         previous: UUID,
-                                         fullOp: Int): Future[PackedOperationsView] = {
-    withAccountAndWallet(accountIndex, walletName, poolName, user.pubKey) {
+  def getPreviousBatchAccountOperations(previous: UUID,
+                                         fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView] = {
+    withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         val previousRecord = opsCache.getPreviousOperationRecord(previous)
         for {
@@ -82,14 +77,9 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
     }
   }
 
-  def getNextBatchAccountOperations(
-                                     user: User,
-                                     accountIndex: Int,
-                                     poolName: String,
-                                     walletName: String,
-                                     next: UUID,
-                                     fullOp: Int): Future[PackedOperationsView] = {
-    withAccountAndWalletAndPool(accountIndex, walletName, poolName, user.pubKey){
+  def getNextBatchAccountOperations( next: UUID,
+                                     fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView] = {
+    withAccountAndWalletAndPool(accountInfo){
       case (account, wallet, pool) =>
         val candidate = opsCache.getOperationCandidate(next)
         for {
@@ -97,14 +87,14 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
           realBatch = if (ops.size < candidate.batch) ops.size else candidate.batch
           next = if (realBatch < candidate.batch) None else candidate.next
           previous = candidate.previous
-          operationRecord = opsCache.insertOperation(candidate.id, pool.id, walletName, accountIndex, candidate.offset(), candidate.batch, next, previous)
+          operationRecord = opsCache.insertOperation(candidate.id, pool.id, accountInfo.walletName, accountInfo.accountIndex, candidate.offset(), candidate.batch, next, previous)
           opsView <- Future.sequence(ops.map { op => Operations.getView(op, wallet, account) })
         } yield PackedOperationsView(operationRecord.previous, operationRecord.next, opsView)
     }
   }
 
-  def getAccountOperations(user: User, accountIndex: Int, poolName: String, walletName: String, batch: Int, fullOp: Int): Future[PackedOperationsView] = {
-    withAccountAndWalletAndPool(accountIndex, walletName, poolName, user.pubKey) {
+  def getAccountOperations(batch: Int, fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView] = {
+    withAccountAndWalletAndPool(accountInfo) {
       case (account, wallet, pool) =>
         val offset = 0
         for {
@@ -112,7 +102,7 @@ class DefaultDaemonCache() extends DaemonCache with Logging {
           realBatch = if (ops.size < batch) ops.size else batch
           next = if (realBatch < batch) None else Option(UUID.randomUUID())
           previous = None
-          operationRecord = opsCache.insertOperation(UUID.randomUUID(), pool.id, walletName, accountIndex, offset, batch, next, previous)
+          operationRecord = opsCache.insertOperation(UUID.randomUUID(), pool.id, accountInfo.walletName, accountInfo.accountIndex, offset, batch, next, previous)
           opsView <- Future.sequence(ops.map { op => Operations.getView(op, wallet, account) })
         } yield PackedOperationsView(operationRecord.previous, operationRecord.next, opsView)
     }

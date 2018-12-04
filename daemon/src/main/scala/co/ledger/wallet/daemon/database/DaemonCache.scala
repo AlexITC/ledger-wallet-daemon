@@ -26,8 +26,8 @@ trait DaemonCache {
     * @param walletName        the name of the wallet the account belongs to.
     * @return a Future of new instance of `co.ledger.wallet.daemon.models.Account`.
     */
-  def createAccount(accountDerivation: AccountDerivationView, poolName: String, walletName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Account] =
-    withWallet(walletName, poolName, pubKey)(w => createAccount(accountDerivation, w))
+  def createAccount(accountDerivation: AccountDerivationView, walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Account] =
+    withWallet(walletInfo)(w => createAccount(accountDerivation, w))
 
   def createAccount(accountDerivation: AccountDerivationView, wallet: Wallet)(implicit ec: ExecutionContext): Future[Account] =
     wallet.addAccountIfNotExist(accountDerivation)
@@ -41,8 +41,8 @@ trait DaemonCache {
     * @param walletName        the name of the wallet the account belongs to.
     * @return a Future of new instance of `co.ledger.wallet.daemon.models.Account`.
     */
-  def createAccount(accountDerivation: AccountExtendedDerivationView, poolName: String, walletName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Account] =
-    withWallet(walletName, poolName, pubKey)(w => createAccount(accountDerivation, w))
+  def createAccount(accountDerivation: AccountExtendedDerivationView, walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Account] =
+    withWallet(walletInfo)(w => createAccount(accountDerivation, w))
 
   def createAccount(accountDerivation: AccountExtendedDerivationView, wallet: Wallet)(implicit ec: ExecutionContext): Future[Account] =
     wallet.addAccountIfNotExist(accountDerivation)
@@ -55,8 +55,8 @@ trait DaemonCache {
     * @param walletName the name of wallet the account belongs to.
     * @return a Future of a sequence of instances of `co.ledger.wallet.daemon.models.Account`.
     */
-  def getAccounts(pubKey: String, poolName: String, walletName: String)(implicit ec: ExecutionContext): Future[Seq[Account]] =
-    withWallet(walletName, poolName, pubKey)(_.accounts)
+  def getAccounts(walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Seq[Account]] =
+    withWallet(walletInfo)(_.accounts)
 
   /**
     * Getter of account instance with specified parameters.
@@ -67,11 +67,11 @@ trait DaemonCache {
     * @param walletName   the name of wallet the account belongs to.
     * @return a Future of an Option of the instance of `co.ledger.wallet.daemon.models.Account`.
     */
-  def getAccount(accountIndex: Int, pubKey: String, poolName: String, walletName: String)(implicit ec: ExecutionContext): Future[Option[Account]] =
-    withWallet(walletName, poolName, pubKey)(_.account(accountIndex))
+  def getAccount(accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[Option[Account]] =
+    withWallet(accountInfo.walletInfo)(_.account(accountInfo.accountIndex))
 
-  def withAccount[T](accountIndex: Int, walletName: String, poolName: String, pubKey: String)(f: Account => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    withWallet(walletName, poolName, pubKey)(w => withAccount(accountIndex, w)(f))
+  def withAccount[T](accountInfo: AccountInfo)(f: Account => Future[T])(implicit ec: ExecutionContext): Future[T] =
+    withWallet(accountInfo.walletInfo)(w => withAccount(accountInfo.accountIndex, w)(f))
 
   def withAccount[T](accountIndex: Int, wallet: Wallet)(f: Account => Future[T])(implicit ec: ExecutionContext): Future[T] =
     wallet.account(accountIndex).flatMap {
@@ -79,15 +79,15 @@ trait DaemonCache {
       case None => Future.failed(AccountNotFoundException(accountIndex))
     }
 
-  def withAccountAndWallet[T](accountIndex: Int, walletName: String, poolName: String, pubKey: String)(f: (Account, Wallet) => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    withAccountAndWalletAndPool(accountIndex, walletName, poolName, pubKey){
+  def withAccountAndWallet[T](accountInfo: AccountInfo)(f: (Account, Wallet) => Future[T])(implicit ec: ExecutionContext): Future[T] =
+    withAccountAndWalletAndPool(accountInfo){
       case (account, wallet, _) => f(account, wallet)
     }
 
-  def withAccountAndWalletAndPool[T](accountIndex: Int, walletName: String, poolName: String, pubKey: String)(f: (Account, Wallet, Pool) => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    withWalletPool(pubKey, poolName) { pool =>
-      withWallet(walletName, pool) { wallet =>
-        withAccount(accountIndex, wallet) { account =>
+  def withAccountAndWalletAndPool[T](accountInfo: AccountInfo)(f: (Account, Wallet, Pool) => Future[T])(implicit ec: ExecutionContext): Future[T] =
+    withWalletPool(accountInfo.walletInfo.poolInfo) { pool =>
+      withWallet(accountInfo.walletInfo) { wallet =>
+        withAccount(accountInfo.accountIndex, wallet) { account =>
           f(account, wallet, pool)
         }
       }
@@ -102,8 +102,8 @@ trait DaemonCache {
     * @param walletName   the name of wallet the account belongs to.
     * @return a Future of a sequence of instances of `co.ledger.wallet.daemon.models.Account`.
     */
-  def getDerivationPath(accountIndex: Int, pubKey: String, poolName: String, walletName: String)(implicit ec: ExecutionContext): Future[String] =
-    withWallet(walletName, poolName, pubKey)(_.accountDerivationPathInfo(accountIndex))
+  def getDerivationPath(accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[String] =
+    withWallet(accountInfo.walletInfo)(_.accountDerivationPathInfo(accountInfo.accountIndex))
 
 
   /**
@@ -115,8 +115,8 @@ trait DaemonCache {
     * @param walletName   the name of wallet the account belongs to.
     * @return a Future of a sequence of instances of `co.ledger.wallet.daemon.models.Account`.
     */
-  def getFreshAddresses(accountIndex: Int, poolName: String, walletName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Seq[FreshAddressView]] =
-    withAccount(accountIndex, walletName, poolName, pubKey)(_.freshAddresses).map(_.map(addr => FreshAddressView(addr.toString, addr.getDerivationPath)))
+  def getFreshAddresses(accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[Seq[FreshAddressView]] =
+    withAccount(accountInfo)(_.freshAddresses).map(_.map(addr => FreshAddressView(addr.toString, addr.getDerivationPath)))
 
   /**
     * Getter of account operations batch instances with specified parameters.
@@ -130,7 +130,7 @@ trait DaemonCache {
     *                     including transaction information, will be returned.
     * @return a Future of `co.ledger.wallet.daemon.models.PackedOperationsView` instance.
     */
-  def getAccountOperations(user: User, accountIndex: Int, poolName: String, walletName: String, batch: Int, fullOp: Int): Future[PackedOperationsView]
+  def getAccountOperations(batch: Int, fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView]
 
   /**
     * Getter for account operation instance with specified uid.
@@ -144,8 +144,8 @@ trait DaemonCache {
     *                     including transaction information, will be returned.
     * @return a Future of optional `co.ledger.wallet.daemon.models.Operation` instance.
     */
-  def getAccountOperation(uid: String, pubKey: String, accountIndex: Int, poolName: String, walletName: String, fullOp: Int)(implicit ec: ExecutionContext): Future[Option[OperationView]] =
-    withAccountAndWallet(accountIndex, walletName, poolName, pubKey) {
+  def getAccountOperation(uid: String, fullOp: Int, accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[Option[OperationView]] =
+    withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         for {
           operationOpt <- account.operation(uid, fullOp)
@@ -168,7 +168,7 @@ trait DaemonCache {
     *                     including transaction information, will be returned.
     * @return a Future of `co.ledger.wallet.daemon.models.PackedOperationView` instance.
     */
-  def getNextBatchAccountOperations(user: User, accountIndex: Int, poolName: String, walletName: String, next: UUID, fullOp: Int): Future[PackedOperationsView]
+  def getNextBatchAccountOperations(next: UUID, fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView]
 
   /**
     * Getter of account operations batch instances with specified parameters.
@@ -183,13 +183,8 @@ trait DaemonCache {
     *                     including transaction information, will be returned.
     * @return a Future of `co.ledger.wallet.daemon.models.PackedOperationView` instance.
     */
-  def getPreviousBatchAccountOperations(
-                                         user: User,
-                                         accountIndex: Int,
-                                         poolName: String,
-                                         walletName: String,
-                                         previous: UUID,
-                                         fullOp: Int): Future[PackedOperationsView]
+  def getPreviousBatchAccountOperations(previous: UUID,
+                                         fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView]
 
 
   /**
@@ -202,8 +197,8 @@ trait DaemonCache {
     *                     specified index already exists in core library, an error will occur. `None` is recommended.
     * @return a Future of `co.ledger.wallet.daemon.models.Derivation` instance.
     */
-  def getNextExtendedAccountCreationInfo(pubKey: String, poolName: String, walletName: String, accountIndex: Option[Int])(implicit ec: ExecutionContext): Future[ExtendedDerivation] =
-    withWallet(walletName, poolName, pubKey)(_.accountExtendedCreation(accountIndex))
+  def getNextExtendedAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[ExtendedDerivation] =
+    withWallet(walletInfo)(_.accountExtendedCreation(accountIndex))
 
   /**
     * Getter of information for next account creation.
@@ -215,8 +210,8 @@ trait DaemonCache {
     *                     specified index already exists in core library, an error will occur. `None` is recommended.
     * @return a Future of `co.ledger.wallet.daemon.models.Derivation` instance.
     */
-  def getNextAccountCreationInfo(pubKey: String, poolName: String, walletName: String, accountIndex: Option[Int])(implicit ec: ExecutionContext): Future[Derivation] =
-    withWallet(walletName, poolName, pubKey)(_.accountCreationInfo(accountIndex))
+  def getNextAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Derivation] =
+    withWallet(walletInfo)(_.accountCreationInfo(accountIndex))
 
   // ************** currency ************
   /**
@@ -228,8 +223,8 @@ trait DaemonCache {
     * @param pubKey       the public key of user.
     * @return a Future of `co.ledger.wallet.daemon.models.Currency` Option.
     */
-  def getCurrency(currencyName: String, poolName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Option[Currency]] =
-    withWalletPool(pubKey, poolName)(_.currency(currencyName))
+  def getCurrency(currencyName: String, poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Option[Currency]] =
+    withWalletPool(poolInfo)(_.currency(currencyName))
 
   /**
     * Getter of `co.ledger.wallet.daemon.models.Currency` instances sequence.
@@ -238,8 +233,8 @@ trait DaemonCache {
     * @param pubKey   the public key of user.
     * @return a Future of sequence of `co.ledger.wallet.daemon.models.Currency` instances.
     */
-  def getCurrencies(poolName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Seq[Currency]] =
-    withWalletPool(pubKey, poolName)(_.currencies())
+  def getCurrencies(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Seq[Currency]] =
+    withWalletPool(poolInfo)(_.currencies())
 
   // ************** wallet *************
   /**
@@ -251,8 +246,8 @@ trait DaemonCache {
     * @param user         the user who can access the wallet.
     * @return a Future of `co.ledger.wallet.daemon.models.Wallet` instance created.
     */
-  def createWallet(walletName: String, currencyName: String, poolName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Wallet] = {
-    withWalletPool(pubKey, poolName)(_.addWalletIfNotExist(walletName, currencyName))
+  def createWallet(currencyName: String, walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Wallet] = {
+    withWalletPool(walletInfo.poolInfo)(_.addWalletIfNotExist(walletInfo.walletName, currencyName))
   }
 
   /**
@@ -264,8 +259,8 @@ trait DaemonCache {
     * @param pubKey   the public key of the user.
     * @return a Future of a tuple containing the total wallets count and required sequence of wallets.
     */
-  def getWallets(offset: Int, batch: Int, poolName: String, pubKey: String)(implicit ec: ExecutionContext): Future[(Int, Seq[Wallet])] = {
-    withWalletPool(pubKey, poolName)(_.wallets(offset, batch))
+  def getWallets(offset: Int, batch: Int, poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[(Int, Seq[Wallet])] = {
+    withWalletPool(poolInfo)(_.wallets(offset, batch))
   }
 
   /**
@@ -276,12 +271,12 @@ trait DaemonCache {
     * @param pubKey     the public key of the user.
     * @return a Future of `co.ledger.wallet.daemon.models.Wallet` instance Option.
     */
-  def getWallet(walletName: String, poolName: String, pubKey: String)(implicit ec: ExecutionContext): Future[Option[Wallet]] = {
-    withWalletPool(pubKey, poolName)(_.wallet(walletName))
+  def getWallet(walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Option[Wallet]] = {
+    withWalletPool(walletInfo.poolInfo)(_.wallet(walletInfo.walletName))
   }
 
-  def withWallet[T](walletName: String, poolName: String, pubKey: String)(f: Wallet => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    withWalletPool(pubKey, poolName)(p => withWallet(walletName, p)(f))
+  def withWallet[T](walletInfo: WalletInfo)(f: Wallet => Future[T])(implicit ec: ExecutionContext): Future[T] =
+    withWalletPool(walletInfo.poolInfo)(p => withWallet(walletInfo.walletName, p)(f))
 
   def withWallet[T](walletName: String, pool: Pool)(f: Wallet => Future[T])(implicit ec: ExecutionContext): Future[T] =
     pool.wallet(walletName).flatMap {
@@ -289,8 +284,8 @@ trait DaemonCache {
       case None => Future.failed(WalletNotFoundException(walletName))
     }
 
-  def withWalletAndPool[T](walletName: String, poolName: String, pubKey: String)(f: (Wallet, Pool) => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    withWalletPool(pubKey, poolName)(p => withWallet(walletName, p)(w => f(w, p)))
+  def withWalletAndPool[T](walletInfo: WalletInfo)(f: (Wallet, Pool) => Future[T])(implicit ec: ExecutionContext): Future[T] =
+    withWalletPool(walletInfo.poolInfo)(p => withWallet(walletInfo.walletName, p)(w => f(w, p)))
 
   // ************** wallet pool *************
   /**
@@ -301,8 +296,8 @@ trait DaemonCache {
     * @param configuration the extra configuration can be set to the pool.
     * @return a Future of `co.ledger.wallet.daemon.models.Pool` instance.
     */
-  def createWalletPool(pubKey: String, poolName: String, configuration: String)(implicit ec: ExecutionContext): Future[Pool] =
-    withUser(pubKey)(_.addPoolIfNotExit(poolName, configuration))
+  def createWalletPool(poolInfo: PoolInfo, configuration: String)(implicit ec: ExecutionContext): Future[Pool] =
+    withUser(poolInfo.pubKey)(_.addPoolIfNotExit(poolInfo.poolName, configuration))
 
   /**
     * Getter of instance of `co.ledger.wallet.daemon.models.Wallet`.
@@ -311,14 +306,14 @@ trait DaemonCache {
     * @param poolName the name of wallet pool.
     * @return a Future of `co.ledger.wallet.daemon.models.Pool` instance Option.
     */
-  def getWalletPool(pubKey: String, poolName: String)(implicit ec: ExecutionContext): Future[Option[Pool]] =
-    withUser(pubKey)(_.pool(poolName))
+  def getWalletPool(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Option[Pool]] =
+    withUser(poolInfo.pubKey)(_.pool(poolInfo.poolName))
 
 
-  def withWalletPool[T](pubKey: String, poolName: String)(f: Pool => Future[T])(implicit ec: ExecutionContext): Future[T] = {
-    getWalletPool(pubKey, poolName).flatMap {
+  def withWalletPool[T](poolInfo: PoolInfo)(f: Pool => Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    getWalletPool(poolInfo).flatMap {
       case Some(pool) => f(pool)
-      case None => Future.failed(WalletPoolNotFoundException(poolName))
+      case None => Future.failed(WalletPoolNotFoundException(poolInfo.poolName))
     }
   }
 
@@ -339,8 +334,8 @@ trait DaemonCache {
     * @param poolName the name of the wallet pool needs to be deleted.
     * @return a Future of Unit.
     */
-  def deleteWalletPool(pubKey: String, poolName: String)(implicit ec: ExecutionContext): Future[Unit] =
-    withUser(pubKey)(_.deletePool(poolName))
+  def deleteWalletPool(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Unit] =
+    withUser(poolInfo.pubKey)(_.deletePool(poolInfo.poolName))
 
   /**
     * Method to synchronize account operations from public resources. The method may take a while
@@ -360,8 +355,8 @@ trait DaemonCache {
     *
     * @return a Future of sequence of result of synchronization.
     */
-  def syncOperations(pubKey: String, poolName: String)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
-    withWalletPool(pubKey, poolName)(_.sync())
+  def syncOperations(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
+    withWalletPool(poolInfo)(_.sync())
 
   /**
     * Method to synchronize account operations from public resources. The method may take a while
@@ -369,8 +364,8 @@ trait DaemonCache {
     *
     * @return a Future of sequence of result of synchronization.
     */
-  def syncOperations(pubKey: String, poolName: String, walletName: String, accountIndex: Int)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
-    withAccount(accountIndex, walletName, poolName, pubKey)(_.sync(poolName, walletName).map(Seq(_)))
+  def syncOperations(accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
+    withAccount(accountInfo)(_.sync(accountInfo.poolName, accountInfo.walletName).map(Seq(_)))
 
   //**************** user ***************
   /**

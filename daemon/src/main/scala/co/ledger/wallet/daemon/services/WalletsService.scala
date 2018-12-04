@@ -1,12 +1,10 @@
 package co.ledger.wallet.daemon.services
 
-import javax.inject.{Inject, Singleton}
-
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
 import co.ledger.wallet.daemon.database._
-import co.ledger.wallet.daemon.models.{WalletView, WalletsViewWithCount}
 import co.ledger.wallet.daemon.models.Wallet._
+import co.ledger.wallet.daemon.models.{PoolInfo, WalletInfo, WalletView, WalletsViewWithCount}
+import javax.inject.{Inject, Singleton}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -15,21 +13,21 @@ import scala.concurrent.{ExecutionContext, Future}
 class WalletsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
-  def wallets(user: User, poolName: String, offset: Int, bulkSize: Int): Future[WalletsViewWithCount] = {
-    daemonCache.getWallets(offset, bulkSize, poolName, user.pubKey).flatMap { pair =>
+  def wallets(offset: Int, bulkSize: Int, poolInfo: PoolInfo): Future[WalletsViewWithCount] = {
+    daemonCache.getWallets(offset, bulkSize, poolInfo).flatMap { pair =>
       Future.sequence(pair._2.map(_.walletView)).map(WalletsViewWithCount(pair._1, _))
     }
   }
 
-  def wallet(user: User, poolName: String, walletName: String): Future[Option[WalletView]] = {
-    daemonCache.getWallet(walletName, poolName, user.pubKey).flatMap {
+  def wallet(walletInfo: WalletInfo): Future[Option[WalletView]] = {
+    daemonCache.getWallet(walletInfo).flatMap {
       case Some(wallet) => wallet.walletView.map(Option(_))
       case None => Future(None)
     }
   }
 
-  def createWallet(user: User, poolName: String, walletName: String, currencyName: String): Future[WalletView] = {
-    daemonCache.createWallet(walletName, currencyName, poolName, user.pubKey).flatMap(_.walletView)
+  def createWallet(currencyName: String, walletInfo: WalletInfo): Future[WalletView] = {
+    daemonCache.createWallet(currencyName, walletInfo).flatMap(_.walletView)
   }
 
 }

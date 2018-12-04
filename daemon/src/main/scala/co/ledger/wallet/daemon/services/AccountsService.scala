@@ -6,7 +6,6 @@ import cats.implicits._
 import co.ledger.core
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.database.DaemonCache
-import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.{OperationView, PackedOperationsView}
@@ -22,77 +21,72 @@ import scala.concurrent.{ExecutionContext, Future}
 class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonService {
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
-  def accounts(user: User, poolName: String, walletName: String): Future[Seq[AccountView]] = {
-    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) { wallet =>
+  def accounts(walletInfo: WalletInfo): Future[Seq[AccountView]] = {
+    defaultDaemonCache.withWallet(walletInfo) { wallet =>
       wallet.accounts.flatMap { as =>
-        as.toList.map(a => a.accountView(walletName, wallet.getCurrency.currencyView)).sequence[Future, AccountView]
+        as.toList.map(a => a.accountView(walletInfo.walletName, wallet.getCurrency.currencyView)).sequence[Future, AccountView]
       }
     }
   }
 
-  def account(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Option[AccountView]] = {
-    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) { wallet =>
-      wallet.account(accountIndex).flatMap(ao =>
-        ao.map(_.accountView(walletName, wallet.getCurrency.currencyView)).sequence)
+  def account(accountInfo: AccountInfo): Future[Option[AccountView]] = {
+    defaultDaemonCache.withWallet(accountInfo.walletInfo) { wallet =>
+      wallet.account(accountInfo.accountIndex).flatMap(ao =>
+        ao.map(_.accountView(accountInfo.walletName, wallet.getCurrency.currencyView)).sequence)
     }
   }
 
-  def synchronizeAccount(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Seq[SynchronizationResult]] = {
-    defaultDaemonCache.syncOperations(user.pubKey, poolName, walletName, accountIndex)
+  def synchronizeAccount(accountInfo: AccountInfo): Future[Seq[SynchronizationResult]] = {
+    defaultDaemonCache.syncOperations(accountInfo)
   }
 
-  def getAccount(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Option[core.Account]] = {
-    defaultDaemonCache.getAccount(accountIndex, user.pubKey, poolName, walletName)
+  def getAccount(accountInfo: AccountInfo): Future[Option[core.Account]] = {
+    defaultDaemonCache.getAccount(accountInfo: AccountInfo)
   }
 
-  def getBalance(accountIndex: Int, user: User, poolName: String, walletName:String, contract: Option[String]): Future[Long] =
-    defaultDaemonCache.withAccount(accountIndex, walletName, poolName, user.pubKey)(a => contract match {
+  def getBalance(contract: Option[String], accountInfo: AccountInfo): Future[Long] =
+    defaultDaemonCache.withAccount(accountInfo)(a => contract match {
       case Some(c) => a.erc20Balance(c).liftTo[Future]
       case None => a.balance
     })
 
-  def getERC20Operations(accountIndex: Int, user: User, poolName: String, walletName: String, contract: String): Future[List[ERC20OperationView]] =
-    defaultDaemonCache.withAccount(accountIndex, walletName, poolName, user.pubKey)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
+  def getERC20Operations(contract: String, accountInfo: AccountInfo): Future[List[ERC20OperationView]] =
+    defaultDaemonCache.withAccount(accountInfo)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
 
-  def accountFreshAddresses(accountIndex: Int, user: User, poolName: String, walletName: String): Future[Seq[FreshAddressView]] = {
-    defaultDaemonCache.getFreshAddresses(accountIndex, poolName, walletName, user.pubKey)
+  def accountFreshAddresses(accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = {
+    defaultDaemonCache.getFreshAddresses(accountInfo)
   }
 
-  def accountDerivationPath(accountIndex: Int, user: User, poolName: String, walletName: String): Future[String] = {
-    defaultDaemonCache.getDerivationPath(accountIndex, user.pubKey, poolName, walletName)
+  def accountDerivationPath(accountInfo: AccountInfo): Future[String] = {
+    defaultDaemonCache.getDerivationPath(accountInfo)
   }
 
-  def nextAccountCreationInfo(user: User, poolName: String, walletName: String, accountIndex: Option[Int]): Future[AccountDerivationView] = {
-    defaultDaemonCache.getNextAccountCreationInfo(user.pubKey, poolName, walletName, accountIndex).map(_.view)
+  def nextAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo): Future[AccountDerivationView] = {
+    defaultDaemonCache.getNextAccountCreationInfo(accountIndex, walletInfo).map(_.view)
   }
 
-  def nextExtendedAccountCreationInfo(user: User, poolName: String, walletName: String, accountIndex: Option[Int]): Future[AccountExtendedDerivationView] = {
-    defaultDaemonCache.getNextExtendedAccountCreationInfo(user.pubKey, poolName, walletName, accountIndex).map(_.view)
+  def nextExtendedAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo): Future[AccountExtendedDerivationView] = {
+    defaultDaemonCache.getNextExtendedAccountCreationInfo(accountIndex, walletInfo).map(_.view)
   }
 
-  def accountOperations(
-                         user: User,
-                         accountIndex: Int,
-                         poolName: String,
-                         walletName: String,
-                         queryParams: OperationQueryParams): Future[PackedOperationsView] = {
+  def accountOperations(queryParams: OperationQueryParams, accountInfo: AccountInfo): Future[PackedOperationsView] = {
     (queryParams.next, queryParams.previous) match {
       case (Some(n), _) =>
         // next has more priority, using database batch instead queryParams.batch
         info(LogMsgMaker.newInstance("Retrieve next batch operation").toString())
-        defaultDaemonCache.getNextBatchAccountOperations(user, accountIndex, poolName, walletName, n, queryParams.fullOp)
+        defaultDaemonCache.getNextBatchAccountOperations(n, queryParams.fullOp, accountInfo)
       case (_, Some(p)) =>
         info(LogMsgMaker.newInstance("Retrieve previous operations").toString())
-        defaultDaemonCache.getPreviousBatchAccountOperations(user, accountIndex, poolName, walletName, p, queryParams.fullOp)
+        defaultDaemonCache.getPreviousBatchAccountOperations(p, queryParams.fullOp, accountInfo)
       case _ =>
         // new request
         info(LogMsgMaker.newInstance("Retrieve latest operations").toString())
-        defaultDaemonCache.getAccountOperations(user, accountIndex, poolName, walletName, queryParams.batch, queryParams.fullOp)
+        defaultDaemonCache.getAccountOperations(queryParams.batch, queryParams.fullOp, accountInfo)
     }
   }
 
-  def firstOperation(user: User, accountIndex: Int, poolName: String, walletName: String): Future[Option[OperationView]] = {
-    defaultDaemonCache.withAccountAndWallet(accountIndex, walletName, poolName, user.pubKey) {
+  def firstOperation(accountInfo: AccountInfo): Future[Option[OperationView]] = {
+    defaultDaemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         account.firstOperation flatMap {
           case None => Future(None)
@@ -101,17 +95,17 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
     }
   }
 
-  def accountOperation(user: User, uid: String, accountIndex: Int, poolName: String, walletName: String, fullOp: Int): Future[Option[OperationView]] =
-    defaultDaemonCache.getAccountOperation(user.pubKey, uid, accountIndex, poolName, walletName, fullOp)
+  def accountOperation(uid: String, fullOp: Int, accountInfo: AccountInfo): Future[Option[OperationView]] =
+    defaultDaemonCache.getAccountOperation(uid, fullOp, accountInfo)
 
-  def createAccount(accountCreationBody: AccountDerivationView, user: User, poolName: String, walletName: String): Future[AccountView] =
-    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) {
-      w => defaultDaemonCache.createAccount(accountCreationBody, w).flatMap(_.accountView(walletName, w.getCurrency.currencyView))
+  def createAccount(accountCreationBody: AccountDerivationView, walletInfo: WalletInfo): Future[AccountView] =
+    defaultDaemonCache.withWallet(walletInfo) {
+      w => defaultDaemonCache.createAccount(accountCreationBody, w).flatMap(_.accountView(walletInfo.walletName, w.getCurrency.currencyView))
     }
 
-  def createAccountWithExtendedInfo(derivations: AccountExtendedDerivationView, user: User, poolName: String, walletName: String): Future[AccountView] =
-    defaultDaemonCache.withWallet(walletName, poolName, user.pubKey) {
-      w => defaultDaemonCache.createAccount(derivations, w).flatMap(_.accountView(walletName, w.getCurrency.currencyView))
+  def createAccountWithExtendedInfo(derivations: AccountExtendedDerivationView, walletInfo: WalletInfo): Future[AccountView] =
+    defaultDaemonCache.withWallet(walletInfo) {
+      w => defaultDaemonCache.createAccount(derivations, w).flatMap(_.accountView(walletInfo.walletName, w.getCurrency.currencyView))
     }
 
 }
