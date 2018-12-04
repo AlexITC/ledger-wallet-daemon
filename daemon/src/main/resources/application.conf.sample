@@ -63,3 +63,26 @@ whitelist = [
 ]
 
 disable_whitelist = true
+
+core_data_path = "core_data"
+
+explorer {
+  api {
+  // ${KEY} = ${VALUE}
+  // KEY: one of [ethereum, bitcoin, ripple, monero]
+  // VALUE: example "http://127.0.0.1"
+    ethereum = ${ETHEREUM_EXPLORER_URL}
+    ethereum = ${BITCOIN_EXPLORER_URL}
+    ethereum = ${RIPPLE_EXPLORER_URL}
+    ethereum = ${MONERO_EXPLORER_URL}
+  }
+  ws {
+  // ${KEY} = ${VALUE}
+  // KEY: one of [ethereum, bitcoin, ripple, monero]
+  // VALUE: example "http://127.0.0.1/{}", `{}` is used to format the request
+    ethereum = ${ETHEREUM_NOTIFICATION_URL}
+    ethereum = ${BITCOIN_NOTIFICATION_URL}
+    ethereum = ${RIPPLE_NOTIFICATION_URL}
+    ethereum = ${MONERO_NOTIFICATION_URL}
+  }
+}
