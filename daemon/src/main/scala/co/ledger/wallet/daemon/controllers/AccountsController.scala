@@ -12,7 +12,6 @@ import co.ledger.wallet.daemon.filters.AccountCreationContext._
 import co.ledger.wallet.daemon.filters.ExtendedAccountCreationContext._
 import co.ledger.wallet.daemon.filters.{AccountCreationFilter, AccountExtendedCreationFilter}
 import co.ledger.wallet.daemon.models.Account._
-import co.ledger.wallet.daemon.models.{AccountInfo, WalletInfo}
 import co.ledger.wallet.daemon.services.{AccountsService, OperationQueryParams}
 import com.twitter.finagle.http.Request
 import com.twitter.finatra.http.Controller
@@ -27,158 +26,164 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
 
   import AccountsController._
 
-  /**
-    * End point queries for account views with specified pool name and wallet name.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts") { request: AccountsRequest =>
-    info(s"GET accounts $request")
-    accountsService.accounts(request.walletInfo)
-  }
-
-  /**
-    * End point queries for derivation information view of next account creation.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/next") { request: AccountCreationInfoRequest =>
-    info(s"GET account creation info $request")
-    accountsService.nextAccountCreationInfo(request.account_index, request.walletInfo)
-  }
-
-  /**
-    * End point queries for derivation information view of next account creation (with extended key).
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/next_extended") { request: AccountCreationInfoRequest =>
-    info(s"GET account creation info $request")
-    accountsService.nextExtendedAccountCreationInfo(request.account_index, request.walletInfo)
-  }
-
-  /**
-    * End point queries for account view with specified pool, wallet name, and unique account index.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index") { request: AccountRequest =>
-    info(s"GET account $request")
-    accountsService.account(request.accountInfo).map {
-      case Some(view) => ResponseSerializer.serializeOk(view, response)
-      case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account doesn't exist", "account_index" -> request.account_index), response)
-    }.recover {
-      case _: WalletPoolNotFoundException => ResponseSerializer.serializeBadRequest(
-        Map("response" -> "Wallet pool doesn't exist", "pool_name" -> request.pool_name),
-        response)
-      case _: WalletNotFoundException => ResponseSerializer.serializeBadRequest(
-        Map("response" -> "Wallet doesn't exist", "wallet_name" -> request.wallet_name),
-        response)
-      case e: Throwable => ResponseSerializer.serializeInternalError(response, e)
+  prefix("/pools/:pool_name/wallets/:wallet_name") {
+    /**
+      * End point queries for account views with specified pool name and wallet name.
+      *
+      */
+    get("/accounts") { request: AccountsRequest =>
+      info(s"GET accounts $request")
+      accountsService.accounts(request.walletInfo)
     }
-  }
 
-  /**
-    * End point queries for fresh addresses with specified pool, wallet name and unique account index.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/addresses/fresh") { request: AccountRequest =>
-    info(s"GET fresh addresses $request")
-    accountsService.accountFreshAddresses(request.accountInfo)
-  }
-
-  /**
-    * End point queries for derivation path with specified pool, wallet name and unique account index.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/path") { request: AccountRequest =>
-    info(s"GET account derivation path $request")
-    accountsService.accountDerivationPath(request.accountInfo)
-  }
-
-  /**
-    * End point queries for operation views with specified pool, wallet name, and unique account index.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/operations") { request: OperationsRequest =>
-    info(s"GET account operations $request")
-    request.contract match {
-      case Some(contract) =>
-        accountsService.getERC20Operations(contract, request.accountInfo)
-      case None =>
-        accountsService.accountOperations(OperationQueryParams(request.previous, request.next, request.batch, request.full_op), request.accountInfo)
+    /**
+      * End point queries for derivation information view of next account creation.
+      *
+      */
+    get("/accounts/next") { request: AccountCreationInfoRequest =>
+      info(s"GET account creation info $request")
+      accountsService.nextAccountCreationInfo(request.account_index, request.walletInfo)
     }
-  }
 
-  /**
-    * End point queries for account balance
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/balance") { request: BalanceRequest =>
-    info(s"GET account balance $request")
-    accountsService.getBalance(request.contract, request.accountInfo)
-  }
+    /**
+      * End point to create a new account within the specified pool and wallet.
+      *
+      */
+    filter[AccountCreationFilter]
+      .post("/accounts") { request: AccountsRequest =>
+        info(s"CREATE account $request, " +
+          s"Parameters(user: ${request.user.id}, pool_name: ${request.pool_name}, wallet_name: ${request.wallet_name}), " +
+          s"Body(${request.request.accountCreationBody}")
+        accountsService.createAccount(request.request.accountCreationBody, request.walletInfo)
+      }
 
-  /**
-    * End point queries for operation view with specified uid, return the first operation of this account if uid is 'first'.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/operations/:uid") { request: OperationRequest =>
-    info(s"GET account operation $request")
-    request.uid match {
-      case "first" => accountsService.firstOperation(request.accountInfo)
-        .map {
+    /**
+      * End point to create a new account within the specified pool and wallet with extended keys info.
+      *
+      */
+    filter[AccountExtendedCreationFilter]
+      .post("/accounts/extended") { request: AccountsRequest =>
+        info(s"CREATE account ${request.request}, " +
+          s"Parameters(user: ${request.user.id}, pool_name: ${request.pool_name}, wallet_name: ${request.wallet_name}), " +
+          s"Body(${request.request.accountExtendedCreationBody}")
+        accountsService.createAccountWithExtendedInfo(request.request.accountExtendedCreationBody, request.walletInfo)
+      }
+
+    /**
+      * End point queries for derivation information view of next account creation (with extended key).
+      *
+      */
+    get("/accounts/next_extended") { request: AccountCreationInfoRequest =>
+      info(s"GET account creation info $request")
+      accountsService.nextExtendedAccountCreationInfo(request.account_index, request.walletInfo)
+    }
+
+    /**
+      * End point queries for account view with specified pool, wallet name, and unique account index.
+      *
+      */
+
+    prefix("/accounts/:account_index") {
+
+      get("") { request: AccountRequest =>
+        info(s"GET account $request")
+        accountsService.account(request.accountInfo).map {
           case Some(view) => ResponseSerializer.serializeOk(view, response)
-          case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account is empty"), response)
+          case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account doesn't exist", "account_index" -> request.account_index), response)
+        }.recover {
+          case _: WalletPoolNotFoundException => ResponseSerializer.serializeBadRequest(
+            Map("response" -> "Wallet pool doesn't exist", "pool_name" -> request.pool_name),
+            response)
+          case _: WalletNotFoundException => ResponseSerializer.serializeBadRequest(
+            Map("response" -> "Wallet doesn't exist", "wallet_name" -> request.wallet_name),
+            response)
+          case e: Throwable => ResponseSerializer.serializeInternalError(response, e)
         }
-      case _ => accountsService.accountOperation(request.uid, request.full_op, request.accountInfo)
-        .map {
-          case Some(view) => ResponseSerializer.serializeOk(view, response)
-          case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account operation doesn't exist", "uid" -> request.uid), response)
+      }
+
+      /**
+        * End point queries for fresh addresses with specified pool, wallet name and unique account index.
+        *
+        */
+      get("/addresses/fresh") { request: AccountRequest =>
+        info(s"GET fresh addresses $request")
+        accountsService.accountFreshAddresses(request.accountInfo)
+      }
+
+      /**
+        * End point queries for derivation path with specified pool, wallet name and unique account index.
+        *
+        */
+      get("/path") { request: AccountRequest =>
+        info(s"GET account derivation path $request")
+        accountsService.accountDerivationPath(request.accountInfo)
+      }
+
+      /**
+        * End point queries for operation views with specified pool, wallet name, and unique account index.
+        *
+        */
+      get("/operations") { request: OperationsRequest =>
+        info(s"GET account operations $request")
+        request.contract match {
+          case Some(contract) =>
+            accountsService.getERC20Operations(contract, request.accountInfo)
+          case None =>
+            accountsService.accountOperations(OperationQueryParams(request.previous, request.next, request.batch, request.full_op), request.accountInfo)
         }
+      }
+
+      /**
+        * End point queries for account balance
+        *
+        */
+      get("/balance") { request: BalanceRequest =>
+        info(s"GET account balance $request")
+        accountsService.getBalance(request.contract, request.accountInfo)
+      }
+
+      /**
+        * End point queries for operation view with specified uid, return the first operation of this account if uid is 'first'.
+        *
+        */
+      get("/operations/:uid") { request: OperationRequest =>
+        info(s"GET account operation $request")
+        request.uid match {
+          case "first" => accountsService.firstOperation(request.accountInfo)
+            .map {
+              case Some(view) => ResponseSerializer.serializeOk(view, response)
+              case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account is empty"), response)
+            }
+          case _ => accountsService.accountOperation(request.uid, request.full_op, request.accountInfo)
+            .map {
+              case Some(view) => ResponseSerializer.serializeOk(view, response)
+              case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account operation doesn't exist", "uid" -> request.uid), response)
+            }
+        }
+      }
+
+      /**
+        * Return the balances and operation counts history in the order of the starting time to the end time.
+        *
+        */
+      get("/history") { request: HistoryRequest =>
+        info(s"Get history $request")
+        for {
+          accountOpt <- accountsService.getAccount(request.accountInfo)
+          account = accountOpt.getOrElse(throw AccountNotFoundException(request.account_index))
+          balances <- account.balances(request.start, request.end, request.timePeriod)
+          operationCounts <- account.operationsCounts(request.startDate, request.endDate, request.timePeriod)
+        } yield HistoryResponse(balances, operationCounts)
+      }
+
+      /**
+        * Synchronize a single account
+        */
+      post("/operations/synchronize") { request: AccountRequest =>
+        accountsService.synchronizeAccount(request.accountInfo)
+      }
     }
   }
-
-  /**
-    * Return the balances and operation counts history in the order of the starting time to the end time.
-    *
-    */
-  get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/history") { request: HistoryRequest =>
-    info(s"Get history $request")
-    for {
-      accountOpt <- accountsService.getAccount(request.accountInfo)
-      account = accountOpt.getOrElse(throw AccountNotFoundException(request.account_index))
-      balances <- account.balances(request.start, request.end, request.timePeriod)
-      operationCounts <- account.operationsCounts(request.startDate, request.endDate, request.timePeriod)
-    } yield HistoryResponse(balances, operationCounts)
-  }
-
-  /**
-    * Synchronize a single account
-    */
-  post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/operations/synchronize") { request: AccountRequest =>
-    accountsService.synchronizeAccount(request.accountInfo)
-  }
-
-  /**
-    * End point to create a new account within the specified pool and wallet.
-    *
-    */
-  filter[AccountCreationFilter]
-    .post("/pools/:pool_name/wallets/:wallet_name/accounts") { request: AccountsRequest =>
-      info(s"CREATE account $request, " +
-        s"Parameters(user: ${request.user.id}, pool_name: ${request.pool_name}, wallet_name: ${request.wallet_name}), " +
-        s"Body(${request.request.accountCreationBody}")
-      accountsService.createAccount(request.request.accountCreationBody, request.walletInfo)
-    }
-
-  /**
-    * End point to create a new account within the specified pool and wallet with extended keys info.
-    *
-    */
-  filter[AccountExtendedCreationFilter]
-    .post("/pools/:pool_name/wallets/:wallet_name/accounts/extended") { request: AccountsRequest =>
-      info(s"CREATE account ${request.request}, " +
-        s"Parameters(user: ${request.user.id}, pool_name: ${request.pool_name}, wallet_name: ${request.wallet_name}), " +
-        s"Body(${request.request.accountExtendedCreationBody}")
-      accountsService.createAccountWithExtendedInfo(request.request.accountExtendedCreationBody, request.walletInfo)
-    }
 
 }
 
