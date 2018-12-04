@@ -5,20 +5,20 @@ import java.util.{Date, UUID}
 import co.ledger.core.{OperationType, TimePeriod}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.controllers.requests.CommonMethodValidations.DATE_FORMATTER
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithAccountInfo, WithWalletInfo}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.filters.AccountCreationContext._
 import co.ledger.wallet.daemon.filters.ExtendedAccountCreationContext._
 import co.ledger.wallet.daemon.filters.{AccountCreationFilter, AccountExtendedCreationFilter}
-import co.ledger.wallet.daemon.services.AuthenticationService.AuthentifiedUserContext._
+import co.ledger.wallet.daemon.models.Account._
+import co.ledger.wallet.daemon.models.{AccountInfo, WalletInfo}
 import co.ledger.wallet.daemon.services.{AccountsService, OperationQueryParams}
 import com.twitter.finagle.http.Request
 import com.twitter.finatra.http.Controller
 import com.twitter.finatra.request.{QueryParam, RouteParam}
 import com.twitter.finatra.validation.{MethodValidation, ValidationResult}
 import javax.inject.Inject
-import co.ledger.wallet.daemon.models.Account._
 
 import scala.concurrent.ExecutionContext
 
@@ -33,7 +33,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts") { request: AccountsRequest =>
     info(s"GET accounts $request")
-    accountsService.accounts(request.user, request.pool_name, request.wallet_name)
+    accountsService.accounts(request.walletInfo)
   }
 
   /**
@@ -42,7 +42,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/next") { request: AccountCreationInfoRequest =>
     info(s"GET account creation info $request")
-    accountsService.nextAccountCreationInfo(request.user, request.pool_name, request.wallet_name, request.account_index)
+    accountsService.nextAccountCreationInfo(request.account_index, request.walletInfo)
   }
 
   /**
@@ -51,7 +51,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/next_extended") { request: AccountCreationInfoRequest =>
     info(s"GET account creation info $request")
-    accountsService.nextExtendedAccountCreationInfo(request.user, request.pool_name, request.wallet_name, request.account_index)
+    accountsService.nextExtendedAccountCreationInfo(request.account_index, request.walletInfo)
   }
 
   /**
@@ -60,7 +60,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index") { request: AccountRequest =>
     info(s"GET account $request")
-    accountsService.account(request.account_index, request.user, request.pool_name, request.wallet_name).map {
+    accountsService.account(request.accountInfo).map {
       case Some(view) => ResponseSerializer.serializeOk(view, response)
       case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account doesn't exist", "account_index" -> request.account_index), response)
     }.recover {
@@ -80,7 +80,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/addresses/fresh") { request: AccountRequest =>
     info(s"GET fresh addresses $request")
-    accountsService.accountFreshAddresses(request.account_index, request.user, request.pool_name, request.wallet_name)
+    accountsService.accountFreshAddresses(request.accountInfo)
   }
 
   /**
@@ -89,7 +89,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/path") { request: AccountRequest =>
     info(s"GET account derivation path $request")
-    accountsService.accountDerivationPath(request.account_index, request.user, request.pool_name, request.wallet_name)
+    accountsService.accountDerivationPath(request.accountInfo)
   }
 
   /**
@@ -100,20 +100,9 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     info(s"GET account operations $request")
     request.contract match {
       case Some(contract) =>
-        accountsService.getERC20Operations(
-          request.account_index,
-          request.user,
-          request.pool_name,
-          request.wallet_name,
-          contract
-        )
+        accountsService.getERC20Operations(contract, request.accountInfo)
       case None =>
-        accountsService.accountOperations(
-          request.user,
-          request.account_index,
-          request.pool_name,
-          request.wallet_name,
-          OperationQueryParams(request.previous, request.next, request.batch, request.full_op))
+        accountsService.accountOperations(OperationQueryParams(request.previous, request.next, request.batch, request.full_op), request.accountInfo)
     }
   }
 
@@ -123,13 +112,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     */
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/balance") { request: BalanceRequest =>
     info(s"GET account balance $request")
-    accountsService.getBalance(
-      request.account_index,
-      request.user,
-      request.pool_name,
-      request.wallet_name,
-      request.contract
-    )
+    accountsService.getBalance(request.contract, request.accountInfo)
   }
 
   /**
@@ -139,12 +122,12 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/operations/:uid") { request: OperationRequest =>
     info(s"GET account operation $request")
     request.uid match {
-      case "first" => accountsService.firstOperation(request.user, request.account_index, request.pool_name, request.wallet_name)
+      case "first" => accountsService.firstOperation(request.accountInfo)
         .map {
           case Some(view) => ResponseSerializer.serializeOk(view, response)
           case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account is empty"), response)
         }
-      case _ => accountsService.accountOperation(request.user, request.uid, request.account_index, request.pool_name, request.wallet_name, request.full_op)
+      case _ => accountsService.accountOperation(request.uid, request.full_op, request.accountInfo)
         .map {
           case Some(view) => ResponseSerializer.serializeOk(view, response)
           case None => ResponseSerializer.serializeNotFound(Map("response" -> "Account operation doesn't exist", "uid" -> request.uid), response)
@@ -159,7 +142,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
   get("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/history") { request: HistoryRequest =>
     info(s"Get history $request")
     for {
-      accountOpt <- accountsService.getAccount(request.account_index, request.user, request.pool_name, request.wallet_name)
+      accountOpt <- accountsService.getAccount(request.accountInfo)
       account = accountOpt.getOrElse(throw AccountNotFoundException(request.account_index))
       balances <- account.balances(request.start, request.end, request.timePeriod)
       operationCounts <- account.operationsCounts(request.startDate, request.endDate, request.timePeriod)
@@ -170,7 +153,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     * Synchronize a single account
     */
   post("/pools/:pool_name/wallets/:wallet_name/accounts/:account_index/operations/synchronize") { request: AccountRequest =>
-    accountsService.synchronizeAccount(request.account_index, request.user, request.pool_name, request.wallet_name)
+    accountsService.synchronizeAccount(request.accountInfo)
   }
 
   /**
@@ -178,13 +161,11 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     *
     */
   filter[AccountCreationFilter]
-    .post("/pools/:pool_name/wallets/:wallet_name/accounts") { request: Request =>
-      val walletName = request.getParam("wallet_name")
-      val poolName = request.getParam("pool_name")
+    .post("/pools/:pool_name/wallets/:wallet_name/accounts") { request: AccountsRequest =>
       info(s"CREATE account $request, " +
-        s"Parameters(user: ${request.user.get.id}, pool_name: $poolName, wallet_name: $walletName), " +
-        s"Body(${request.accountCreationBody}")
-      accountsService.createAccount(request.accountCreationBody, request.user.get, poolName, walletName)
+        s"Parameters(user: ${request.user.id}, pool_name: ${request.pool_name}, wallet_name: ${request.wallet_name}), " +
+        s"Body(${request.request.accountCreationBody}")
+      accountsService.createAccount(request.request.accountCreationBody, request.walletInfo)
     }
 
   /**
@@ -192,13 +173,11 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
     *
     */
   filter[AccountExtendedCreationFilter]
-    .post("/pools/:pool_name/wallets/:wallet_name/accounts/extended") { request: Request =>
-      val walletName = request.getParam("wallet_name")
-      val poolName = request.getParam("pool_name")
-      info(s"CREATE account $request, " +
-        s"Parameters(user: ${request.user.get.id}, pool_name: $poolName, wallet_name: $walletName), " +
-        s"Body(${request.accountExtendedCreationBody}")
-      accountsService.createAccountWithExtendedInfo(request.accountExtendedCreationBody, request.user.get, poolName, walletName)
+    .post("/pools/:pool_name/wallets/:wallet_name/accounts/extended") { request: AccountsRequest =>
+      info(s"CREATE account ${request.request}, " +
+        s"Parameters(user: ${request.user.id}, pool_name: ${request.pool_name}, wallet_name: ${request.wallet_name}), " +
+        s"Body(${request.request.accountExtendedCreationBody}")
+      accountsService.createAccountWithExtendedInfo(request.request.accountExtendedCreationBody, request.walletInfo)
     }
 
 }
@@ -207,7 +186,8 @@ object AccountsController {
   private val DEFAULT_BATCH: Int = 20
   private val DEFAULT_OPERATION_MODE: Int = 0
 
-  abstract class BaseAccountRequest(request: Request) extends RequestWithUser {
+
+  abstract class BaseAccountRequest(request: Request) extends RequestWithUser with WithWalletInfo {
     val pool_name: String
     val wallet_name: String
 
@@ -216,17 +196,13 @@ object AccountsController {
 
     @MethodValidation
     def validateWalletName: ValidationResult = CommonMethodValidations.validateName("wallet_name", wallet_name)
-
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name, wallet_name: $wallet_name)"
   }
 
-  abstract class BaseSingleAccountRequest(request: Request) extends BaseAccountRequest(request) {
+  abstract class BaseSingleAccountRequest(request: Request) extends BaseAccountRequest(request) with WithAccountInfo {
     val account_index: Int
 
     @MethodValidation
     def validateAccountIndex: ValidationResult = ValidationResult.validate(account_index >= 0, "account_index: index can not be less than zero")
-
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name, wallet_name: $wallet_name, account_index: $account_index)"
   }
 
   case class HistoryResponse(balances: List[Long], operationCounts: List[Map[OperationType, Int]])
@@ -269,7 +245,7 @@ object AccountsController {
                                          @RouteParam wallet_name: String,
                                          @QueryParam account_index: Option[Int],
                                          request: Request
-                                       ) extends RequestWithUser {
+                                       ) extends RequestWithUser with WithWalletInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -278,8 +254,6 @@ object AccountsController {
 
     @MethodValidation
     def validateAccountIndex: ValidationResult = CommonMethodValidations.validateOptionalAccountIndex(account_index)
-
-    override def toString: String = s"$request, Parameters(user: ${user.id}, pool_name: $pool_name, wallet_name: $wallet_name, account_index: $account_index)"
   }
 
   case class OperationsRequest(
@@ -297,15 +271,6 @@ object AccountsController {
     @MethodValidation
     def validateBatch: ValidationResult = ValidationResult.validate(batch > 0, "batch: batch should be greater than zero")
 
-    override def toString: String = s"$request, Parameters(" +
-      s"user: ${user.id}, " +
-      s"pool_name: $pool_name, " +
-      s"wallet_name: $wallet_name, " +
-      s"account_index: $account_index, " +
-      s"next: $next, " +
-      s"previous: $previous, " +
-      s"batch: $batch, " +
-      s"full_op: $full_op)"
   }
 
   case class BalanceRequest(
@@ -323,9 +288,6 @@ object AccountsController {
                                @RouteParam uid: String,
                                @QueryParam full_op: Int = 0,
                                request: Request
-                             ) extends BaseSingleAccountRequest(request) {
-    override def toString: String = s"$request, Parameters(" +
-      s"user: ${user.id}, pool_name: $pool_name, wallet_name: $wallet_name, account_index: $account_index, uid: $uid, full_op: $full_op)"
-  }
+                             ) extends BaseSingleAccountRequest(request)
 
 }

@@ -2,8 +2,7 @@ package co.ledger.wallet.daemon.controllers
 
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
-import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
-import co.ledger.wallet.daemon.models.FeeMethod
+import co.ledger.wallet.daemon.models.{AccountInfo, FeeMethod}
 import co.ledger.wallet.daemon.services.TransactionsService
 import co.ledger.wallet.daemon.utils.HexUtils
 import com.twitter.finagle.http.Request
@@ -68,7 +67,7 @@ object TransactionsController {
                                 request: Request
                                ) extends RequestWithUser
   {
-    def accountInfo = AccountInfo(pool_name, wallet_name, account_index, user)
+    def accountInfo = AccountInfo(account_index, wallet_name, pool_name, user.pubKey)
   }
 
   trait BroadcastTransactionRequest
@@ -124,8 +123,6 @@ object TransactionsController {
     @MethodValidation
     def validateFees: ValidationResult = CommonMethodValidations.validateFees(fees_per_byte, fees_level)
   }
-
-  case class AccountInfo(poolName: String, walletName: String, accountIndex: Int, user: User)
 
   trait TransactionInfo
 

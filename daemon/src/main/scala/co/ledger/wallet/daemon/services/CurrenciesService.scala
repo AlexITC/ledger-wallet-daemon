@@ -13,16 +13,16 @@ import scala.concurrent.{ExecutionContext, Future}
 class CurrenciesService @Inject()(daemonCache: DaemonCache) extends DaemonService {
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
-  def currency(currencyName: String, poolName: String, pubKey: String): Future[Option[CurrencyView]] = {
-    daemonCache.getCurrency(currencyName, poolName, pubKey).map { currency => currency.map(_.currencyView) }
+  def currency(currencyName: String, poolInfo: PoolInfo): Future[Option[CurrencyView]] = {
+    daemonCache.getCurrency(currencyName, poolInfo).map { currency => currency.map(_.currencyView) }
   }
 
-  def currencies(poolName: String, pubKey: String): Future[Seq[CurrencyView]] = {
-    daemonCache.getCurrencies(poolName, pubKey).map { modelCs => modelCs.map(_.currencyView) }
+  def currencies(poolInfo: PoolInfo): Future[Seq[CurrencyView]] = {
+    daemonCache.getCurrencies(poolInfo).map { modelCs => modelCs.map(_.currencyView) }
   }
 
-  def validateAddress(address: String, currencyName: String, poolName: String, pubKey: String): Future[Boolean] = {
-    daemonCache.getCurrency(currencyName, poolName, pubKey).flatMap {
+  def validateAddress(address: String, currencyName: String, poolInfo: PoolInfo): Future[Boolean] = {
+    daemonCache.getCurrency(currencyName, poolInfo).flatMap {
       case Some(currency) => Future(currency.validateAddress(address))
       case None => Future.failed(CurrencyNotFoundException(currencyName))
     }

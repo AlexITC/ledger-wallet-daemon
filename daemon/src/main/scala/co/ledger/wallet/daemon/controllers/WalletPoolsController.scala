@@ -1,9 +1,8 @@
 package co.ledger.wallet.daemon.controllers
 
 import javax.inject.Inject
-
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser}
+import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithPoolInfo}
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.services.AuthenticationService.AuthentifiedUserContext._
 import co.ledger.wallet.daemon.services.PoolsService
@@ -37,7 +36,7 @@ class WalletPoolsController @Inject()(poolsService: PoolsService) extends Contro
     */
   get("/pools/:pool_name") { request: PoolRouteRequest =>
     info(s"GET wallet pool $request")
-    poolsService.pool(request.user, request.pool_name).map {
+    poolsService.pool(request.poolInfo).map {
       case Some(view) => ResponseSerializer.serializeOk(view, response)
       case None => ResponseSerializer.serializeNotFound(
         Map("response" -> "Wallet pool doesn't exist", "pool_name" -> request.pool_name), response)
@@ -63,7 +62,7 @@ class WalletPoolsController @Inject()(poolsService: PoolsService) extends Contro
     *
     */
   post("/pools/:pool_name/operations/synchronize") { request: PoolRouteRequest =>
-    poolsService.syncOperations(request.user, request.pool_name)
+    poolsService.syncOperations(request.poolInfo)
   }
 
   /**
@@ -73,7 +72,7 @@ class WalletPoolsController @Inject()(poolsService: PoolsService) extends Contro
   post("/pools") { request: CreationRequest =>
     info(s"CREATE wallet pool $request")
     // TODO: Deserialize the configuration from the body of the request
-    poolsService.createPool(request.user, request.pool_name, PoolConfiguration())
+    poolsService.createPool(request.poolInfo, PoolConfiguration())
   }
 
   /**
@@ -84,7 +83,7 @@ class WalletPoolsController @Inject()(poolsService: PoolsService) extends Contro
     */
   delete("/pools/:pool_name") { request: PoolRouteRequest =>
     info(s"DELETE wallet pool $request")
-    poolsService.removePool(request.user, request.pool_name)
+    poolsService.removePool(request.poolInfo)
   }
 
 }
@@ -94,7 +93,7 @@ object WalletPoolsController {
   case class CreationRequest(
                               @NotEmpty @JsonProperty pool_name: String,
                               request: Request
-                            ) extends RequestWithUser {
+                            ) extends RequestWithUser with WithPoolInfo {
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 
@@ -103,7 +102,7 @@ object WalletPoolsController {
 
   case class PoolRouteRequest(
                                @RouteParam pool_name: String,
-                               request: Request) extends RequestWithUser {
+                               request: Request) extends RequestWithUser with WithPoolInfo{
     @MethodValidation
     def validatePoolName: ValidationResult = CommonMethodValidations.validateName("pool_name", pool_name)
 

@@ -1,14 +1,14 @@
 package co.ledger.wallet.daemon.services
 
-import co.ledger.core.{Currency, WalletType}
+import co.ledger.core.WalletType
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
-import co.ledger.wallet.daemon.controllers.TransactionsController._
+import co.ledger.wallet.daemon.controllers.TransactionsController.{BroadcastBTCTransactionRequest, BroadcastETHTransactionRequest, CreateBTCTransactionRequest, CreateETHTransactionRequest}
 import co.ledger.wallet.daemon.database.DefaultDaemonCache
-import co.ledger.wallet.daemon.exceptions.{CurrencyNotFoundException, WalletNotFoundException}
+import co.ledger.wallet.daemon.exceptions.CurrencyNotFoundException
 import co.ledger.wallet.daemon.models.Account._
+import co.ledger.wallet.daemon.models.AccountInfo
 import co.ledger.wallet.daemon.models.Wallet._
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
-import co.ledger.wallet.daemon.utils.Utils._
 import com.twitter.finagle.http.Request
 import com.twitter.finatra.http.internal.marshalling.MessageBodyManager
 import javax.inject.{Inject, Singleton}
@@ -28,7 +28,7 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
   def createTransaction(request: Request, accountInfo: AccountInfo): Future[TransactionView] = {
-    defaultDaemonCache.withAccountAndWallet(accountInfo.accountIndex, accountInfo.walletName, accountInfo.poolName, accountInfo.user.pubKey) {
+    defaultDaemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
 
         val transactionInfoEither = wallet.getWalletType match {
@@ -45,7 +45,7 @@ class TransactionsService @Inject()(defaultDaemonCache: DefaultDaemonCache, mess
   }
 
   def broadcastTransaction(request: Request, accountInfo: AccountInfo): Future[String] = {
-    defaultDaemonCache.withAccountAndWallet(accountInfo.accountIndex, accountInfo.walletName, accountInfo.poolName, accountInfo.user.pubKey) {
+    defaultDaemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         for {
           currentHeight <- wallet.lastBlockHeight
