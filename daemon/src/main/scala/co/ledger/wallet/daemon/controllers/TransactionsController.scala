@@ -74,11 +74,17 @@ object TransactionsController {
 
   case class BroadcastETHTransactionRequest(
                                            raw_transaction: String,
-                                           signature: String,
+                                           signatures: Seq[String],
                                            request: Request
                                          ) extends BroadcastTransactionRequest {
     def hexTx: Array[Byte] = HexUtils.valueOf(raw_transaction)
-    def hexSig: Array[Byte] = HexUtils.valueOf(signature)
+    def hexSig: Array[Byte] = HexUtils.valueOf(signatures.head)
+
+    @MethodValidation
+    def validateSignatures: ValidationResult = ValidationResult.validate(
+      signatures.size == 1,
+      s"expecting 1 DER signature, found ${signatures.size} instead."
+    )
   }
 
   case class BroadcastBTCTransactionRequest(
