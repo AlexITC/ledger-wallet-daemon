@@ -27,38 +27,56 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 object Account extends Logging {
 
   implicit class RichCoreAccount(val a: core.Account) extends AnyVal {
-    def erc20Balance(contract: String): Either[Exception, Long] = Account.erc20Balance(contract, a)
+    def erc20Balance(contract: String): Either[Exception, Long] =
+      Account.erc20Balance(contract, a)
 
-    def erc20Operation(contract: String): Either[Exception, List[core.ERC20LikeOperation]] = Account.erc20Operation(contract, a)
-    def balance(implicit ec: ExecutionContext): Future[Long] = Account.balance(a)
+    def erc20Operation(contract: String): Either[Exception, List[core.ERC20LikeOperation]] =
+      Account.erc20Operation(contract, a)
 
-    def balances(start: String, end: String, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Long]] = Account.balances(start, end, timePeriod, a)
+    def balance(implicit ec: ExecutionContext): Future[Long] =
+      Account.balance(a)
 
-    def firstOperation(implicit ec: ExecutionContext): Future[Option[core.Operation]] = Account.firstOperation(a)
+    def balances(start: String, end: String, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Long]] =
+      Account.balances(start, end, timePeriod, a)
 
-    def operationCounts(implicit ec: ExecutionContext): Future[Map[core.OperationType, Int]] = Account.operationCounts(a)
+    def firstOperation(implicit ec: ExecutionContext): Future[Option[core.Operation]] =
+      Account.firstOperation(a)
 
-    def accountView(walletName: String, cv: CurrencyView)(implicit ec: ExecutionContext): Future[AccountView] = Account.accountView(walletName, cv, a)
+    def operationCounts(implicit ec: ExecutionContext): Future[Map[core.OperationType, Int]] =
+      Account.operationCounts(a)
 
-    def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
+    def accountView(walletName: String, cv: CurrencyView)(implicit ec: ExecutionContext): Future[AccountView] =
+      Account.accountView(walletName, cv, a)
 
-    def broadcastETHTransaction(rawTx: Array[Byte], signatures: ETHSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = Account.broadcastETHTransaction(rawTx, signatures, a, c)
+    def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, c: core.Currency)(implicit ec: ExecutionContext): Future[String] =
+      Account.broadcastBTCTransaction(rawTx, signatures, currentHeight, a, c)
 
-    def createTransaction(transactionInfo: TransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] = Account.createTransaction(transactionInfo, a, c)
+    def broadcastETHTransaction(rawTx: Array[Byte], signatures: ETHSignature, c: core.Currency)(implicit ec: ExecutionContext): Future[String] =
+      Account.broadcastETHTransaction(rawTx, signatures, a, c)
 
-    def operation(uid: String, fullOp: Int)(implicit ec: ExecutionContext): Future[Option[core.Operation]] = Account.operation(uid, fullOp, a)
+    def createTransaction(transactionInfo: TransactionInfo, c: core.Currency)(implicit ec: ExecutionContext): Future[TransactionView] =
+      Account.createTransaction(transactionInfo, a, c)
 
-    def operations(offset: Long, batch: Int, fullOp: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = Account.operations(offset, batch, fullOp, a)
+    def operation(uid: String, fullOp: Int)(implicit ec: ExecutionContext): Future[Option[core.Operation]] =
+      Account.operation(uid, fullOp, a)
 
-    def operationsCounts(start: Date, end: Date, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Map[core.OperationType, Int]]] = Account.operationsCounts(start, end, timePeriod, a)
+    def operations(offset: Long, batch: Int, fullOp: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
+      Account.operations(offset, batch, fullOp, a)
 
-    def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] = Account.freshAddresses(a)
+    def operationsCounts(start: Date, end: Date, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Map[core.OperationType, Int]]] =
+      Account.operationsCounts(start, end, timePeriod, a)
 
-    def sync(poolName: String, walletName: String)(implicit ec: ExecutionContext): Future[SynchronizationResult] = Account.sync(poolName, walletName, a)
+    def freshAddresses(implicit ec: ExecutionContext): Future[Seq[core.Address]] =
+      Account.freshAddresses(a)
 
-    def startRealTimeObserver(): Unit = Account.startRealTimeObserver(a)
+    def sync(poolName: String, walletName: String)(implicit ec: ExecutionContext): Future[SynchronizationResult] =
+      Account.sync(poolName, walletName, a)
 
-    def stopRealTimeObserver(): Unit = Account.stopRealTimeObserver(a)
+    def startRealTimeObserver(): Unit =
+      Account.startRealTimeObserver(a)
+
+    def stopRealTimeObserver(): Unit =
+      Account.stopRealTimeObserver(a)
   }
 
   def balance(a: core.Account)(implicit ex: ExecutionContext): Future[Long] = a.getBalance().map { b =>
@@ -96,7 +114,7 @@ object Account extends Logging {
   def broadcastBTCTransaction(rawTx: Array[Byte], signatures: Seq[BTCSigPub], currentHeight: Long, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
     c.parseUnsignedBTCTransaction(rawTx, currentHeight) match {
       case Right(tx) =>
-        if (tx.getInputs.size != signatures.size) Future.failed(new SignatureSizeUnmatchException(tx.getInputs.size(), signatures.size))
+        if (tx.getInputs.size != signatures.size) Future.failed(SignatureSizeUnmatchException(tx.getInputs.size(), signatures.size))
         else {
           tx.getInputs.asScala.zipWithIndex.foreach { case (input, index) =>
             input.pushToScriptSig(c.concatSig(signatures(index)._1)) // signature
@@ -133,7 +151,7 @@ object Account extends Logging {
             .build()
           v <- Bitcoin.newUnsignedTransactionView(tx, feesPerByte.toLong)
         } yield v
-      case (ti: ETHTransactionInfo, WalletType.ETHEREUM) => {
+      case (ti: ETHTransactionInfo, WalletType.ETHEREUM) =>
         ti.contract match {
           case Some(contract) =>
             a.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getToken.getContractAddress == contract) match {
@@ -154,7 +172,6 @@ object Account extends Logging {
               .setGasPrice(c.convertAmount(ti.gasPrice))
               .build().map(UnsignedEthereumTransactionView(_))
         }
-      }
       case _ => Future.failed(new UnsupportedOperationException("Account type not supported, can't create transaction"))
     }
   }
@@ -234,9 +251,7 @@ object Account extends Logging {
     a.synchronize().subscribe(LedgerCoreExecutionContext(ec), receiver)
     debug(s"Synchronize $a")
     val f = promise.future
-    f onComplete {
-      case _ => a.getEventBus.unsubscribe(receiver)
-    }
+    f onComplete (_ => a.getEventBus.unsubscribe(receiver))
     f
   }
 

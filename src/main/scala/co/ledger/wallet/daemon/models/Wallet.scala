@@ -36,9 +36,13 @@ object Wallet extends Logging {
 
     def accounts(implicit ec: ExecutionContext): Future[Seq[core.Account]] = Wallet.accounts(w)
 
-    def addAccountIfNotExist(derivations: AccountExtendedDerivationView)(implicit ec: ExecutionContext): Future[core.Account] = Wallet.addAccountIfNotExist(derivations, w)
+    def addAccountIfNotExist(derivations: AccountExtendedDerivationView)
+                            (implicit ec: ExecutionContext): Future[core.Account] =
+      Wallet.addAccountIfNotExist(derivations, w)
 
-    def addAccountIfNotExist(accountDerivations: AccountDerivationView)(implicit ec: ExecutionContext): Future[core.Account] = Wallet.addAccountIfNotExist(accountDerivations, w)
+    def addAccountIfNotExist(accountDerivations: AccountDerivationView)
+                            (implicit ec: ExecutionContext): Future[core.Account] =
+      Wallet.addAccountIfNotExist(accountDerivations, w)
 
     def syncAccounts(poolName: String)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] = Wallet.syncAccounts(poolName, w)
 
@@ -117,7 +121,8 @@ object Wallet extends Logging {
     accountCreationEpilogue(w.newAccountWithInfo(accountCreationInfo), accountDerivations.accountIndex, w)
   }
 
-  private def accountCreationEpilogue(coreAccount: Future[core.Account], accountIndex: Int, w: core.Wallet)(implicit ec: ExecutionContext): Future[core.Account] = {
+  private def accountCreationEpilogue(coreAccount: Future[core.Account], accountIndex: Int, w: core.Wallet)
+                                     (implicit ec: ExecutionContext): Future[core.Account] = {
     coreAccount.map { coreA =>
       info(LogMsgMaker.newInstance("Account created").append("index", coreA.getIndex).append("wallet_name", w.getName).toString())
       coreA
@@ -126,7 +131,8 @@ object Wallet extends Logging {
         Future.failed(CoreBadRequestException(e.getMessage, e))
       case _: co.ledger.core.implicits.AccountAlreadyExistsException =>
         for {
-          _ <- Future(warn(LogMsgMaker.newInstance("Account already exist").append("index", accountIndex).append("wallet_name", w.getName).toString()))
+          _ <- Future(warn(LogMsgMaker.newInstance("Account already exist")
+            .append("index", accountIndex).append("wallet_name", w.getName).toString()))
           a <- w.getAccount(accountIndex)
         } yield a
     }.map { coreA =>
