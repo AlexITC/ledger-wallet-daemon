@@ -10,7 +10,7 @@ jobs:
       - checkout
       - run:
           name: Run unit tests
-          command: sbt daemon/test
+          command: cat /dev/null | sbt daemon/test
 
 workflows:
   build_test_and_publish:
