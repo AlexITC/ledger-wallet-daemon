@@ -3,10 +3,19 @@ version: 2.1
 orbs:
   docker: ledger/docker@volatile
 
+jobs:
+  test:
+    steps:
+      - checkout
+      - run: cat /dev/null | sbt daemon/test:test
+
 workflows:
   build_test_and_publish:
     jobs:
+      - test
       - docker/build_image:
+          requires:
+            - test
           filters:
             tags:
               only: /v.*/
