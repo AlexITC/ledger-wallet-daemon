@@ -12,7 +12,10 @@ jobs:
 workflows:
   build_test_and_publish:
     jobs:
-      - test
+      - test:
+          filters:
+            branches:
+              ignore: master
       - docker/build_image:
           requires:
             - test
