@@ -4,21 +4,20 @@ orbs:
   docker: ledger/docker@volatile
 
 jobs:
-  test:
+  run_tests:
     steps:
       - checkout
-      - run: cat /dev/null | sbt daemon/test:test
+      - run:
+          name: Run unit tests
+          command: cat /dev/null | sbt daemon/test
 
 workflows:
   build_test_and_publish:
     jobs:
-      - test:
-          filters:
-            branches:
-              ignore: master
+      - run_tests
       - docker/build_image:
           requires:
-            - test
+            - run_tests
           filters:
             tags:
               only: /v.*/
