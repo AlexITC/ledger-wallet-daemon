@@ -127,11 +127,16 @@ object Account extends Logging {
     }
   }
 
-  def broadcastETHTransaction(rawTx: Array[Byte], signature: ETHSignature, a: core.Account, c: core.Currency): Future[String] = {
+  def broadcastETHTransaction(rawTx: Array[Byte], signature: ETHSignature, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
     c.parseUnsignedETHTransaction(rawTx) match {
       case Right(tx) =>
         tx.setDERSignature(signature)
-        a.asEthereumLikeAccount().broadcastTransaction(tx)
+        tx.setVSignature(Array(0x26))
+        a.asEthereumLikeAccount().broadcastTransaction(tx).recoverWith{
+          case _ =>
+            tx.setVSignature(Array(0x25))
+            a.asEthereumLikeAccount().broadcastTransaction(tx)
+        }
       case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't broadcast ETH transaction: $m"))
     }
   }
