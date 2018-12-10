@@ -5,12 +5,25 @@ orbs:
 
 jobs:
   run_tests:
-    machine: true
-    steps:
-      - checkout
-      - run:
-          name: Run unit tests
-          command: cat /dev/null | sbt daemon/test
+    docker:
+      working_directory: ~/project
+      steps:
+        - run:
+            name: Clean workspace
+            command: rm -fr ~/project
+        - checkout
+        - restore_cache:
+            keys:
+              - v1-dependencies-{{checksum "build.sbt" }}
+              - v1-dependencies-
+        - run:
+            name: Run unit tests
+            command: cat /dev/null | sbt daemon/test
+        - save_cache:
+            paths:
+              - ~/.ivy2
+              - ~/.sbt
+              key: v1-dependencies--{{checksum "build.sbt" }}
 
 workflows:
   build_test_and_publish:
