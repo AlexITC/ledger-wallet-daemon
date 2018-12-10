@@ -21,9 +21,9 @@ jobs:
             command: cat /dev/null | sbt daemon/test
         - save_cache:
             paths:
-              - ~/.ivy2
-              - ~/.sbt
-              key: v1-dependencies--{{checksum "build.sbt" }}
+            - ~/.ivy2
+            - ~/.sbt
+            key: v1-dependencies--{{checksum "build.sbt" }}
 
 workflows:
   build_test_and_publish:
