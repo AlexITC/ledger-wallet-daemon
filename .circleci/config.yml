@@ -3,9 +3,14 @@ version: 2.1
 orbs:
   docker: ledger/docker@volatile
 
+executors:
+  sbt-executor:
+    docker:
+      - image: ledgerhq/jdk8-centos
+
 jobs:
   run_tests:
-    docker:
+    executor: sbt-executor
     working_directory: ~/project
     steps:
     - run:
