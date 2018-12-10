@@ -18,11 +18,11 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonService {
+class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
   implicit val ec: ExecutionContext = MDCPropagatingExecutionContext.Implicits.global
 
   def accounts(walletInfo: WalletInfo): Future[Seq[AccountView]] = {
-    defaultDaemonCache.withWallet(walletInfo) { wallet =>
+    daemonCache.withWallet(walletInfo) { wallet =>
       wallet.accounts.flatMap { as =>
         as.toList.map(a => a.accountView(walletInfo.walletName, wallet.getCurrency.currencyView)).sequence[Future, AccountView]
       }
@@ -30,43 +30,43 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
   }
 
   def account(accountInfo: AccountInfo): Future[Option[AccountView]] = {
-    defaultDaemonCache.withWallet(accountInfo.walletInfo) { wallet =>
+    daemonCache.withWallet(accountInfo.walletInfo) { wallet =>
       wallet.account(accountInfo.accountIndex).flatMap(ao =>
         ao.map(_.accountView(accountInfo.walletName, wallet.getCurrency.currencyView)).sequence)
     }
   }
 
   def synchronizeAccount(accountInfo: AccountInfo): Future[Seq[SynchronizationResult]] = {
-    defaultDaemonCache.syncOperations(accountInfo)
+    daemonCache.syncOperations(accountInfo)
   }
 
   def getAccount(accountInfo: AccountInfo): Future[Option[core.Account]] = {
-    defaultDaemonCache.getAccount(accountInfo: AccountInfo)
+    daemonCache.getAccount(accountInfo: AccountInfo)
   }
 
   def getBalance(contract: Option[String], accountInfo: AccountInfo): Future[Long] =
-    defaultDaemonCache.withAccount(accountInfo)(a => contract match {
+    daemonCache.withAccount(accountInfo)(a => contract match {
       case Some(c) => a.erc20Balance(c).liftTo[Future]
       case None => a.balance
     })
 
   def getERC20Operations(contract: String, accountInfo: AccountInfo): Future[List[ERC20OperationView]] =
-    defaultDaemonCache.withAccount(accountInfo)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
+    daemonCache.withAccount(accountInfo)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
 
   def accountFreshAddresses(accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = {
-    defaultDaemonCache.getFreshAddresses(accountInfo)
+    daemonCache.getFreshAddresses(accountInfo)
   }
 
   def accountDerivationPath(accountInfo: AccountInfo): Future[String] = {
-    defaultDaemonCache.getDerivationPath(accountInfo)
+    daemonCache.getDerivationPath(accountInfo)
   }
 
   def nextAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo): Future[AccountDerivationView] = {
-    defaultDaemonCache.getNextAccountCreationInfo(accountIndex, walletInfo).map(_.view)
+    daemonCache.getNextAccountCreationInfo(accountIndex, walletInfo).map(_.view)
   }
 
   def nextExtendedAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo): Future[AccountExtendedDerivationView] = {
-    defaultDaemonCache.getNextExtendedAccountCreationInfo(accountIndex, walletInfo).map(_.view)
+    daemonCache.getNextExtendedAccountCreationInfo(accountIndex, walletInfo).map(_.view)
   }
 
   def accountOperations(queryParams: OperationQueryParams, accountInfo: AccountInfo): Future[PackedOperationsView] = {
@@ -74,19 +74,19 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
       case (Some(n), _) =>
         // next has more priority, using database batch instead queryParams.batch
         info(LogMsgMaker.newInstance("Retrieve next batch operation").toString())
-        defaultDaemonCache.getNextBatchAccountOperations(n, queryParams.fullOp, accountInfo)
+        daemonCache.getNextBatchAccountOperations(n, queryParams.fullOp, accountInfo)
       case (_, Some(p)) =>
         info(LogMsgMaker.newInstance("Retrieve previous operations").toString())
-        defaultDaemonCache.getPreviousBatchAccountOperations(p, queryParams.fullOp, accountInfo)
+        daemonCache.getPreviousBatchAccountOperations(p, queryParams.fullOp, accountInfo)
       case _ =>
         // new request
         info(LogMsgMaker.newInstance("Retrieve latest operations").toString())
-        defaultDaemonCache.getAccountOperations(queryParams.batch, queryParams.fullOp, accountInfo)
+        daemonCache.getAccountOperations(queryParams.batch, queryParams.fullOp, accountInfo)
     }
   }
 
   def firstOperation(accountInfo: AccountInfo): Future[Option[OperationView]] = {
-    defaultDaemonCache.withAccountAndWallet(accountInfo) {
+    daemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         account.firstOperation flatMap {
           case None => Future(None)
@@ -96,16 +96,16 @@ class AccountsService @Inject()(defaultDaemonCache: DaemonCache) extends DaemonS
   }
 
   def accountOperation(uid: String, fullOp: Int, accountInfo: AccountInfo): Future[Option[OperationView]] =
-    defaultDaemonCache.getAccountOperation(uid, fullOp, accountInfo)
+    daemonCache.getAccountOperation(uid, fullOp, accountInfo)
 
   def createAccount(accountCreationBody: AccountDerivationView, walletInfo: WalletInfo): Future[AccountView] =
-    defaultDaemonCache.withWallet(walletInfo) {
-      w => defaultDaemonCache.createAccount(accountCreationBody, w).flatMap(_.accountView(walletInfo.walletName, w.getCurrency.currencyView))
+    daemonCache.withWallet(walletInfo) {
+      w => daemonCache.createAccount(accountCreationBody, w).flatMap(_.accountView(walletInfo.walletName, w.getCurrency.currencyView))
     }
 
   def createAccountWithExtendedInfo(derivations: AccountExtendedDerivationView, walletInfo: WalletInfo): Future[AccountView] =
-    defaultDaemonCache.withWallet(walletInfo) {
-      w => defaultDaemonCache.createAccount(derivations, w).flatMap(_.accountView(walletInfo.walletName, w.getCurrency.currencyView))
+    daemonCache.withWallet(walletInfo) {
+      w => daemonCache.createAccount(derivations, w).flatMap(_.accountView(walletInfo.walletName, w.getCurrency.currencyView))
     }
 
 }
