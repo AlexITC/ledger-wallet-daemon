@@ -6,7 +6,7 @@ orbs:
 executors:
   sbt-executor:
     docker:
-      - image: ledgerhq/sbt-centos
+      - image: ledgerhq/jdk8-scylla:1.0
 
 jobs:
   run_tests:
