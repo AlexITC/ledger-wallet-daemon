@@ -7,7 +7,7 @@ import co.ledger.wallet.daemon.database.DefaultDaemonCache.User
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.models
 import co.ledger.wallet.daemon.models._
-import djinni.NativeLibLoader
+import co.ledger.wallet.daemon.utils.NativeLibLoader
 import org.junit.Assert._
 import org.junit.{BeforeClass, Test}
 import org.scalatest.junit.AssertionsForJUnit

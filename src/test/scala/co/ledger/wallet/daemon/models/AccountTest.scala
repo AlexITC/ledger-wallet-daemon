@@ -7,12 +7,12 @@ import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.database.PoolDto
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.schedulers.observers.SynchronizationResult
-import djinni.NativeLibLoader
 import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
 import co.ledger.core
 import Account._
 import Wallet._
+import co.ledger.wallet.daemon.utils.NativeLibLoader
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
