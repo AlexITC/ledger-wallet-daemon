@@ -87,6 +87,7 @@ object UnsignedEthereumTransactionView {
   }
 }
 
+// TODO refine operation view
 case class ERC20OperationView(
                              @JsonProperty("sender") sender: String,
                              @JsonProperty("receiver") receiver: String,

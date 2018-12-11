@@ -6,6 +6,7 @@ import cats.implicits._
 import co.ledger.core
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.database.DaemonCache
+import co.ledger.wallet.daemon.models
 import co.ledger.wallet.daemon.models.Account._
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.Operations.{OperationView, PackedOperationsView}
@@ -50,8 +51,17 @@ class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService 
       case None => a.balance
     })
 
-  def getERC20Operations(contract: String, accountInfo: AccountInfo): Future[List[ERC20OperationView]] =
-    daemonCache.withAccount(accountInfo)(_.erc20Operation(contract).map(_.map(ERC20OperationView(_))).liftTo[Future])
+  def getERC20Operations(tokenAccountInfo: TokenAccountInfo): Future[List[ERC20OperationView]] =
+    daemonCache.withAccount(tokenAccountInfo.accountInfo)(_.erc20Operations(tokenAccountInfo.tokenAddress).map(_.map(ERC20OperationView(_))).liftTo[Future])
+
+  def getERC20Operations(accountInfo: AccountInfo): Future[List[ERC20OperationView]] =
+    daemonCache.withAccount(accountInfo)(_.erc20Operations.map(_.map(ERC20OperationView(_))).liftTo[Future])
+
+  def getTokenAccounts(accountInfo: AccountInfo): Future[List[ERC20AccountView]] =
+    daemonCache.withAccount(accountInfo)(_.erc20Accounts.map(_.map(ERC20AccountView(_))).liftTo[Future])
+
+  def getTokenAccount(tokenAccountInfo: TokenAccountInfo): Future[ERC20AccountView] =
+    daemonCache.withAccount(tokenAccountInfo.accountInfo)(_.erc20Account(tokenAccountInfo.tokenAddress).map(ERC20AccountView(_)).liftTo[Future])
 
   def accountFreshAddresses(accountInfo: AccountInfo): Future[Seq[FreshAddressView]] = {
     daemonCache.getFreshAddresses(accountInfo)

@@ -5,13 +5,14 @@ import java.util.{Date, UUID}
 import co.ledger.core.{OperationType, TimePeriod}
 import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import co.ledger.wallet.daemon.controllers.requests.CommonMethodValidations.DATE_FORMATTER
-import co.ledger.wallet.daemon.controllers.requests.{CommonMethodValidations, RequestWithUser, WithAccountInfo, WithWalletInfo}
+import co.ledger.wallet.daemon.controllers.requests._
 import co.ledger.wallet.daemon.controllers.responses.ResponseSerializer
 import co.ledger.wallet.daemon.exceptions._
 import co.ledger.wallet.daemon.filters.AccountCreationContext._
 import co.ledger.wallet.daemon.filters.ExtendedAccountCreationContext._
 import co.ledger.wallet.daemon.filters.{AccountCreationFilter, AccountExtendedCreationFilter}
 import co.ledger.wallet.daemon.models.Account._
+import co.ledger.wallet.daemon.models.TokenAccountInfo
 import co.ledger.wallet.daemon.services.{AccountsService, OperationQueryParams}
 import com.twitter.finagle.http.Request
 import com.twitter.finatra.http.Controller
@@ -127,7 +128,7 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
         info(s"GET account operations $request")
         request.contract match {
           case Some(contract) =>
-            accountsService.getERC20Operations(contract, request.accountInfo)
+            accountsService.getERC20Operations(TokenAccountInfo(contract, request.accountInfo))
           case None =>
             accountsService.accountOperations(OperationQueryParams(request.previous, request.next, request.batch, request.full_op), request.accountInfo)
         }
@@ -181,6 +182,34 @@ class AccountsController @Inject()(accountsService: AccountsService) extends Con
         */
       post("/operations/synchronize") { request: AccountRequest =>
         accountsService.synchronizeAccount(request.accountInfo)
+      }
+
+      /**
+        * List of tokens on this account
+        */
+      get("/tokens") { request: AccountRequest =>
+        accountsService.getTokenAccounts(request.accountInfo)
+      }
+
+      /**
+        * operations of all tokens on this account
+        */
+      get("/tokens/operations") { request: AccountRequest =>
+        accountsService.getERC20Operations(request.accountInfo)
+      }
+
+      /**
+        * given token address, get the token on this account
+        */
+      get("/tokens/:token_address") { request: TokenAccountRequest =>
+        accountsService.getTokenAccount(request.tokenAccountInfo)
+      }
+
+      /**
+        * given token address, get the operations on this token
+        */
+      get("/tokens/:token_address/operations") { request: TokenAccountRequest =>
+        accountsService.getERC20Operations(request.tokenAccountInfo)
       }
     }
   }
@@ -245,6 +274,15 @@ object AccountsController {
                               request: Request
                             ) extends BaseAccountRequest(request)
 
+  case class TokenAccountRequest(
+                                  @RouteParam pool_name: String,
+                                  @RouteParam wallet_name: String,
+                                  @RouteParam account_index: Int,
+                                  @RouteParam token_address: String,
+                                  request: Request
+                                )
+    extends BaseSingleAccountRequest(request) with WithTokenAccountInfo
+
   case class AccountCreationInfoRequest(
                                          @RouteParam pool_name: String,
                                          @RouteParam wallet_name: String,
@@ -282,6 +320,7 @@ object AccountsController {
                              @RouteParam override val pool_name: String,
                              @RouteParam override val wallet_name: String,
                              @RouteParam override val account_index: Int,
+                             // TODO find better way to handle ERC20 contract
                              @QueryParam contract: Option[String],
                              request: Request
                            ) extends BaseSingleAccountRequest(request)
