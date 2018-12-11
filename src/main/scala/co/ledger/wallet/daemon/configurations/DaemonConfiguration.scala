@@ -75,21 +75,9 @@ object DaemonConfiguration {
 
   lazy val coreDataPath: String = Try(config.getString("core_data_path")).getOrElse("./core_data")
 
-  val explorerApiAddresses: Map[WalletType, String] = {
-    Map(
-      WalletType.BITCOIN -> Try(config.getString("explorer.api.bitcoin")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_DEFAULT_API_ENDPOINT),
-      WalletType.ETHEREUM -> Try(config.getString("explorer.api.ethereum")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_DEFAULT_API_ENDPOINT),
-      WalletType.MONERO -> Try(config.getString("explorer.api.monero")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_DEFAULT_API_ENDPOINT),
-      WalletType.RIPPLE -> Try(config.getString("explorer.api.ripple")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_DEFAULT_API_ENDPOINT),
-    )
-  }
+  val explorerApiAddresses: scala.collection.Map[String, String] =
+    config.getObject("explorer.api").unwrapped().asScala.mapValues(_.toString)
 
-  val explorerWebsocketAddresses: Map[WalletType, String] = {
-    Map(
-      WalletType.BITCOIN -> Try(config.getString("explorer.ws.bitcoin")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_OBSERVER_WS_ENDPOINT),
-      WalletType.ETHEREUM -> Try(config.getString("explorer.ws.ethereum")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_OBSERVER_WS_ENDPOINT),
-      WalletType.MONERO -> Try(config.getString("explorer.ws.monero")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_OBSERVER_WS_ENDPOINT),
-      WalletType.RIPPLE -> Try(config.getString("explorer.ws.ripple")).getOrElse(ConfigurationDefaults.BLOCKCHAIN_OBSERVER_WS_ENDPOINT),
-    )
-  }
+  val explorerWebsocketAddresses: scala.collection.Map[String, String] =
+    config.getObject("explorer.ws").unwrapped().asScala.mapValues(_.toString)
 }
