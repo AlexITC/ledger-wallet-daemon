@@ -68,21 +68,23 @@ core_data_path = "core_data"
 
 explorer {
   api {
-  // ${KEY} = ${VALUE}
-  // KEY: one of [ethereum, bitcoin, ripple, monero]
-  // VALUE: example "http://127.0.0.1"
-    ethereum = ${ETHEREUM_EXPLORER_URL}
-    ethereum = ${BITCOIN_EXPLORER_URL}
-    ethereum = ${RIPPLE_EXPLORER_URL}
-    ethereum = ${MONERO_EXPLORER_URL}
+    // possible keys: bitcoin, bitcoin_testnet, bitcoin_cash,
+    // bitcoin_gold, zcash, zencash, litecoin, peercoin, digibyte,
+    // hcash, qtum, stealthcoin, vertcoin, viacoin, dash, dogecoin,
+    // stratis, komodo, poswallet, pivx, clubcoin, decred,
+    // ethereum, ethereum_ropsten
+    // if no key found, will use default lib core value, which is
+    // currently the v2 url
+    ethereum = "http://eth-mainnet.explorers.dev.aws.ledger.fr"
   }
   ws {
-  // ${KEY} = ${VALUE}
-  // KEY: one of [ethereum, bitcoin, ripple, monero]
-  // VALUE: example "http://127.0.0.1/{}", `{}` is used to format the request
-    ethereum = ${ETHEREUM_NOTIFICATION_URL}
-    ethereum = ${BITCOIN_NOTIFICATION_URL}
-    ethereum = ${RIPPLE_NOTIFICATION_URL}
-    ethereum = ${MONERO_NOTIFICATION_URL}
+    // possible keys: bitcoin, bitcoin_testnet, bitcoin_cash,
+    // bitcoin_gold, zcash, zencash, litecoin, peercoin, digibyte,
+    // hcash, qtum, stealthcoin, vertcoin, viacoin, dash, dogecoin,
+    // stratis, komodo, poswallet, pivx, clubcoin, decred,
+    // ethereum, ethereum_ropsten
+    // if no key found, will use default lib core value, which is
+    // currently the v2 url
+    ethereum = "ws://notification.explorers.dev.aws.ledger.fr:9000/ws/{}"
   }
 }
