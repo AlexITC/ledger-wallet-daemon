@@ -13,3 +13,4 @@ object Coin {
 
   trait OutputView
 }
+

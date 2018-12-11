@@ -30,8 +30,17 @@ object Account extends Logging {
     def erc20Balance(contract: String): Either[Exception, Long] =
       Account.erc20Balance(contract, a)
 
-    def erc20Operation(contract: String): Either[Exception, List[core.ERC20LikeOperation]] =
-      Account.erc20Operation(contract, a)
+    def erc20Operations(contract: String): Either[Exception, List[core.ERC20LikeOperation]] =
+      Account.erc20Operations(contract, a)
+
+    def erc20Operations: Either[Exception, List[core.ERC20LikeOperation]] =
+      Account.erc20Operations(a)
+
+    def erc20Accounts: Either[Exception, List[core.ERC20LikeAccount]] =
+      Account.erc20Accounts(a)
+
+    def erc20Account(tokenAddress: String): Either[Exception, core.ERC20LikeAccount] =
+      asERC20Account(tokenAddress, a)
 
     def balance(implicit ec: ExecutionContext): Future[Long] =
       Account.balance(a)
@@ -84,21 +93,32 @@ object Account extends Logging {
     b.toLong
   }
 
-  def withERC20Account[T](contract: String, a: core.Account)(f: core.ERC20LikeAccount => T): Either[Exception, T] = {
+  private def asETHAccount(a: core.Account): Either[Exception, EthereumLikeAccount] = {
     a.getWalletType match {
-      case WalletType.ETHEREUM =>
-        a.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getToken.getContractAddress == contract) match {
-          case Some(t) => Right(f(t))
-          case None => Left(ERC20NotFoundException(contract))
-        }
-      case _ => Left(new UnsupportedOperationException("Account doesn't support ERC20 token"))
+      case WalletType.ETHEREUM => Right(a.asEthereumLikeAccount())
+      case _ => Left(new UnsupportedOperationException("current account is not an ETH account"))
     }
   }
 
-  def erc20Balance(contract: String, a: core.Account): Either[Exception, Long] = withERC20Account(contract, a)(_.getBalance.intValue().toLong)
+  private def asERC20Account(contract: String, a: core.Account): Either[Exception, ERC20LikeAccount] = {
+    asETHAccount(a).flatMap(_.getERC20Accounts.asScala.find(_.getToken.getContractAddress == contract) match {
+      case Some(t) => Right(t)
+      case None => Left(ERC20NotFoundException(contract))
+    })
+  }
 
-  def erc20Operation(contract: String, a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
-    withERC20Account(contract, a)(_.getOperations.asScala.toList)
+  def erc20Accounts(a: core.Account): Either[Exception, List[core.ERC20LikeAccount]] =
+    asETHAccount(a).map(_.getERC20Accounts.asScala.toList)
+
+  def erc20Balance(contract: String, a: core.Account): Either[Exception, Long] =
+  // TODO int is dangerous here, find a way to Long
+    asERC20Account(contract, a).map(_.getBalance.intValue().toLong)
+
+  def erc20Operations(contract: String, a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
+    asERC20Account(contract, a).map(_.getOperations.asScala.toList)
+
+  def erc20Operations(a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
+    asETHAccount(a).map(_.getERC20Accounts.asScala.flatMap(_.getOperations.asScala).toList)
 
   def operationCounts(a: core.Account)(implicit ex: ExecutionContext): Future[Map[core.OperationType, Int]] =
     a.queryOperations().addOrder(OperationOrderKey.DATE, true).partial().execute().map { os =>
@@ -339,22 +359,37 @@ case class AccountView(
                         @JsonProperty("currency") currency: CurrencyView
                       )
 
+case class ERC20AccountView(
+                             @JsonProperty("contract_address") contractAddress: String,
+                             @JsonProperty("name") name: String,
+                             @JsonProperty("number_of_decimal") numberOrDecimal: Int,
+                             @JsonProperty("symbol") symbol: String,
+                           @JsonProperty("balance") balance: Int
+                           )
+
+object ERC20AccountView {
+  def apply(erc20Account: ERC20LikeAccount): ERC20AccountView = {
+    ERC20AccountView(
+      erc20Account.getToken.getContractAddress,
+      erc20Account.getToken.getName,
+      erc20Account.getToken.getNumberOfDecimal,
+      erc20Account.getToken.getSymbol,
+      erc20Account.getBalance.intValue()
+    )
+  }
+}
+
 case class DerivationView(
                            @JsonProperty("path") path: String,
                            @JsonProperty("owner") owner: String,
                            @JsonProperty("pub_key") pubKey: Option[String],
                            @JsonProperty("chain_code") chainCode: Option[String]
-                         ) {
-  override def toString: String = s"DerivationView(path: $path, owner: $owner, pub_key: $pubKey, chain_code: $chainCode)"
-}
+                         )
 
 case class AccountDerivationView(
                                   @JsonProperty("account_index") accountIndex: Int,
                                   @JsonProperty("derivations") derivations: Seq[DerivationView]
-                                ) {
-
-  override def toString: String = s"AccountDerivationView(account_index: $accountIndex, derivations: $derivations)"
-}
+                                )
 
 case class ExtendedDerivationView(
                                    @JsonProperty("path") path: String,
