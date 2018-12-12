@@ -150,6 +150,7 @@ object Account extends Logging {
   def broadcastETHTransaction(rawTx: Array[Byte], signature: ETHSignature, a: core.Account, c: core.Currency)(implicit ec: ExecutionContext): Future[String] = {
     c.parseUnsignedETHTransaction(rawTx) match {
       case Right(tx) =>
+        // calculate the v from chain id
         val v: Long = c.getEthereumLikeNetworkParameters.getChainID.toLong * 2 + 35
         tx.setDERSignature(signature)
         tx.setVSignature(HexUtils.valueOf(v.toHexString))
