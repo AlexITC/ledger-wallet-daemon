@@ -154,9 +154,9 @@ object Account extends Logging {
         val v: Long = c.getEthereumLikeNetworkParameters.getChainID.toLong * 2 + 35
         tx.setDERSignature(signature)
         tx.setVSignature(HexUtils.valueOf(v.toHexString))
-        a.asEthereumLikeAccount().broadcastTransaction(tx).recoverWith{
+        a.asEthereumLikeAccount().broadcastTransaction(tx).recoverWith {
           case _ =>
-            tx.setVSignature(HexUtils.valueOf((v+1).toHexString))
+            tx.setVSignature(HexUtils.valueOf((v + 1).toHexString))
             a.asEthereumLikeAccount().broadcastTransaction(tx)
         }
       case Left(m) => Future.failed(new UnsupportedOperationException(s"Account type not supported, can't broadcast ETH transaction: $m"))
@@ -365,7 +365,7 @@ case class ERC20AccountView(
                              @JsonProperty("name") name: String,
                              @JsonProperty("number_of_decimal") numberOrDecimal: Int,
                              @JsonProperty("symbol") symbol: String,
-                           @JsonProperty("balance") balance: Int
+                             @JsonProperty("balance") balance: Int
                            )
 
 object ERC20AccountView {
