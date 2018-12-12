@@ -61,6 +61,11 @@ class DaemonExceptionMapper @Inject()(response: ResponseBuilder)
           Map("response" -> enfe.getMessage, "contract" -> enfe.contract),
           response
         )
+      case e: ERC20BalanceNotEnough =>
+        ResponseSerializer.serializeBadRequest(
+          Map("response" -> e.getMessage, "contract" -> e.tokenAddress),
+          response
+        )
     }
   }
 }

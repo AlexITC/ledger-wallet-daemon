@@ -8,11 +8,11 @@ import co.ledger.core.implicits.{UnsupportedOperationException, _}
 import co.ledger.wallet.daemon.clients.ClientFactory
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.controllers.TransactionsController.{BTCTransactionInfo, ETHTransactionInfo, TransactionInfo}
-import co.ledger.wallet.daemon.exceptions.{ERC20NotFoundException, SignatureSizeUnmatchException}
+import co.ledger.wallet.daemon.exceptions.{ERC20BalanceNotEnough, ERC20NotFoundException, SignatureSizeUnmatchException}
 import co.ledger.wallet.daemon.libledger_core.async.LedgerCoreExecutionContext
 import co.ledger.wallet.daemon.models.Currency._
 import co.ledger.wallet.daemon.models.coins.Coin.TransactionView
-import co.ledger.wallet.daemon.models.coins.{Bitcoin, UnsignedEthereumTransactionView}
+import co.ledger.wallet.daemon.models.coins.{Bitcoin, ERC20OperationView, UnsignedEthereumTransactionView}
 import co.ledger.wallet.daemon.schedulers.observers.{SynchronizationEventReceiver, SynchronizationResult}
 import co.ledger.wallet.daemon.services.LogMsgMaker
 import co.ledger.wallet.daemon.utils.HexUtils
@@ -183,13 +183,20 @@ object Account extends Logging {
           case Some(contract) =>
             a.asEthereumLikeAccount().getERC20Accounts.asScala.find(_.getToken.getContractAddress == contract) match {
               case Some(erc20Account) =>
-                val inputData = erc20Account.getTransferToAddressData(BigInt.fromLong(ti.amount), ti.recipient)
-                a.asEthereumLikeAccount().buildTransaction()
-                  .sendToAddress(c.convertAmount(0), contract)
-                  .setGasLimit(c.convertAmount(ti.gasLimit))
-                  .setGasPrice(c.convertAmount(ti.gasPrice))
-                  .setInputData(inputData)
-                  .build().map(UnsignedEthereumTransactionView(_))
+                val balance: Long = erc20Account.getBalance.toString(10).toLong
+                // TODO just for test usage, can be removed
+                debug(s"Creating ERC20 transaction on account (balance: $balance, operations: ${erc20Account.getOperations.asScala.map(ERC20OperationView(_))}) ... transaction info: $ti")
+                if(balance > ti.amount) {
+                  val inputData = erc20Account.getTransferToAddressData(BigInt.fromLong(ti.amount), ti.recipient)
+                  a.asEthereumLikeAccount().buildTransaction()
+                    .sendToAddress(c.convertAmount(0), contract)
+                    .setGasLimit(c.convertAmount(ti.gasLimit))
+                    .setGasPrice(c.convertAmount(ti.gasPrice))
+                    .setInputData(inputData)
+                    .build().map(UnsignedEthereumTransactionView(_))
+                } else {
+                  Future.failed(ERC20BalanceNotEnough(erc20Account.getToken.getContractAddress, balance, ti.amount))
+                }
               case None => Future.failed(ERC20NotFoundException(contract))
             }
           case None =>
