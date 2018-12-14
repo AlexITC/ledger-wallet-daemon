@@ -51,11 +51,17 @@ class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService 
       case None => a.balance
     })
 
-  def getERC20Operations(tokenAccountInfo: TokenAccountInfo): Future[List[ERC20OperationView]] =
-    daemonCache.withAccount(tokenAccountInfo.accountInfo)(_.erc20Operations(tokenAccountInfo.tokenAddress).map(_.map(ERC20OperationView(_))).liftTo[Future])
+  def getERC20Operations(tokenAccountInfo: TokenAccountInfo): Future[List[OperationView]] =
+    daemonCache.withAccountAndWallet(tokenAccountInfo.accountInfo){
+      case (account, wallet) =>
+      account.erc20Operations(tokenAccountInfo.tokenAddress).flatMap(_.traverse(Operations.getView(_, wallet, account)))
+    }
 
-  def getERC20Operations(accountInfo: AccountInfo): Future[List[ERC20OperationView]] =
-    daemonCache.withAccount(accountInfo)(_.erc20Operations.map(_.map(ERC20OperationView(_))).liftTo[Future])
+  def getERC20Operations(accountInfo: AccountInfo): Future[List[OperationView]] =
+    daemonCache.withAccountAndWallet(accountInfo){
+      case (account, wallet) =>
+      account.erc20Operations.flatMap(_.traverse(Operations.getView(_, wallet, account)))
+    }
 
   def getTokenAccounts(accountInfo: AccountInfo): Future[List[ERC20AccountView]] =
     daemonCache.withAccount(accountInfo)(_.erc20Accounts.map(_.map(ERC20AccountView(_))).liftTo[Future])
@@ -95,7 +101,7 @@ class AccountsService @Inject()(daemonCache: DaemonCache) extends DaemonService 
     }
   }
 
-  def firstOperation(accountInfo: AccountInfo): Future[Option[OperationView]] = {
+  def firstOperation(accountInfo: AccountInfo, tokenAddress: Option[String] = None): Future[Option[OperationView]] = {
     daemonCache.withAccountAndWallet(accountInfo) {
       case (account, wallet) =>
         account.firstOperation flatMap {

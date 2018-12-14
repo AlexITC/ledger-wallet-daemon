@@ -2,6 +2,7 @@ package co.ledger.wallet.daemon.models
 
 import java.util.{Calendar, Date}
 
+import cats.implicits._
 import co.ledger.core
 import co.ledger.core._
 import co.ledger.core.implicits.{UnsupportedOperationException, _}
@@ -30,10 +31,10 @@ object Account extends Logging {
     def erc20Balance(contract: String): Either[Exception, Long] =
       Account.erc20Balance(contract, a)
 
-    def erc20Operations(contract: String): Either[Exception, List[core.ERC20LikeOperation]] =
+    def erc20Operations(contract: String)(implicit ec: ExecutionContext): Future[List[core.Operation]] =
       Account.erc20Operations(contract, a)
 
-    def erc20Operations: Either[Exception, List[core.ERC20LikeOperation]] =
+    def erc20Operations(implicit ec: ExecutionContext): Future[List[core.Operation]] =
       Account.erc20Operations(a)
 
     def erc20Accounts: Either[Exception, List[core.ERC20LikeAccount]] =
@@ -70,7 +71,7 @@ object Account extends Logging {
       Account.operation(uid, fullOp, a)
 
     def operations(offset: Long, batch: Int, fullOp: Int)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] =
-      Account.operations(offset, batch, fullOp, a)
+      Account.operations(offset, batch, fullOp, a.queryOperations())
 
     def operationsCounts(start: Date, end: Date, timePeriod: core.TimePeriod)(implicit ec: ExecutionContext): Future[List[Map[core.OperationType, Int]]] =
       Account.operationsCounts(start, end, timePeriod, a)
@@ -114,11 +115,15 @@ object Account extends Logging {
   // TODO int is dangerous here, find a way to Long
     asERC20Account(contract, a).map(_.getBalance.intValue().toLong)
 
-  def erc20Operations(contract: String, a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
-    asERC20Account(contract, a).map(_.getOperations.asScala.toList)
+  def erc20Operations(contract: String, a: core.Account)(implicit ec: ExecutionContext): Future[List[core.Operation]] =
+    asERC20Account(contract, a).liftTo[Future].flatMap(erc20Operations)
 
-  def erc20Operations(a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
-    asETHAccount(a).map(_.getERC20Accounts.asScala.flatMap(_.getOperations.asScala).toList)
+  private def erc20Operations(a: core.ERC20LikeAccount)(implicit ec: ExecutionContext):
+  Future[List[core.Operation]] =
+      a.queryOperations().complete().execute().map(_.asScala.toList)
+
+  def erc20Operations(a: core.Account)(implicit ec: ExecutionContext): Future[List[core.Operation]] =
+    asETHAccount(a).liftTo[Future].flatMap(_.getERC20Accounts.asScala.toList.traverse(erc20Operations).map(_.flatten))
 
   def operationCounts(a: core.Account)(implicit ex: ExecutionContext): Future[Map[core.OperationType, Int]] =
     a.queryOperations().addOrder(OperationOrderKey.DATE, true).partial().execute().map { os =>
@@ -186,7 +191,7 @@ object Account extends Logging {
                 val balance: Long = erc20Account.getBalance.toString(10).toLong
                 // TODO just for test usage, can be removed
                 debug(s"Creating ERC20 transaction on account (balance: $balance, operations: ${erc20Account.getOperations.asScala.map(ERC20OperationView(_))}) ... transaction info: $ti")
-                if(balance > ti.amount) {
+                if (balance > ti.amount) {
                   val inputData = erc20Account.getTransferToAddressData(BigInt.fromLong(ti.amount), ti.recipient)
                   a.asEthereumLikeAccount().buildTransaction()
                     .sendToAddress(c.convertAmount(0), contract)
@@ -225,11 +230,11 @@ object Account extends Logging {
       .map { ops => ops.asScala.toList.headOption }
   }
 
-  def operations(offset: Long, batch: Int, fullOp: Int, a: core.Account)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
+  def operations(offset: Long, batch: Int, fullOp: Int, query: OperationQuery)(implicit ec: ExecutionContext): Future[Seq[core.Operation]] = {
     (if (fullOp > 0) {
-      a.queryOperations().addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).complete().execute()
+      query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).complete().execute()
     } else {
-      a.queryOperations().addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).partial().execute()
+      query.addOrder(OperationOrderKey.DATE, true).offset(offset).limit(batch).partial().execute()
     }).map { operations => operations.asScala.toList }
   }
 

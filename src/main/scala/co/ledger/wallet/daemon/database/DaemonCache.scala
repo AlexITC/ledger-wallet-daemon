@@ -150,7 +150,7 @@ trait DaemonCache {
         for {
           operationOpt <- account.operation(uid, fullOp)
           op <- operationOpt match {
-            case None => Future(None)
+            case None => Future.successful(None)
             case Some(op) => Operations.getView(op, wallet, account).map(Some(_))
           }
         } yield op

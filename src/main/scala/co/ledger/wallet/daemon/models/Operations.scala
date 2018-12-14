@@ -67,7 +67,9 @@ object Operations {
         case core.WalletType.ETHEREUM => Some(EthereumTransactionView(operation.asEthereumLikeOperation().getTransaction))
         case _ => None
       }
-    } else None
+    } else {
+      None
+    }
   }
 
   case class OperationView(
