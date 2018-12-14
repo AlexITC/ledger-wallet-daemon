@@ -128,8 +128,8 @@ object ERC20OperationView {
       op.getReceiver,
       op.getValue.toString(10).toLong,
       op.getNonce.toString(10).toLong,
-      op.getGasPrice.intValue(),
-      op.getGasLimit.intValue()
+      op.getGasPrice.toString(10).toLong,
+      op.getGasLimit.toString(10).toLong
     )
   }
 }

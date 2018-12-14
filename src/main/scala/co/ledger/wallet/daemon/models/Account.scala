@@ -112,8 +112,7 @@ object Account extends Logging {
     asETHAccount(a).map(_.getERC20Accounts.asScala.toList)
 
   def erc20Balance(contract: String, a: core.Account): Either[Exception, Long] =
-  // TODO int is dangerous here, find a way to Long
-    asERC20Account(contract, a).map(_.getBalance.intValue().toLong)
+    asERC20Account(contract, a).map(_.getBalance.toString(10).toLong)
 
   def erc20Operations(contract: String, a: core.Account)(implicit ec: ExecutionContext): Future[List[core.Operation]] =
     asERC20Account(contract, a).liftTo[Future].flatMap(erc20Operations)
@@ -377,7 +376,7 @@ case class ERC20AccountView(
                              @JsonProperty("name") name: String,
                              @JsonProperty("number_of_decimal") numberOrDecimal: Int,
                              @JsonProperty("symbol") symbol: String,
-                             @JsonProperty("balance") balance: Int
+                             @JsonProperty("balance") balance: Long
                            )
 
 object ERC20AccountView {
@@ -387,7 +386,7 @@ object ERC20AccountView {
       erc20Account.getToken.getName,
       erc20Account.getToken.getNumberOfDecimal,
       erc20Account.getToken.getSymbol,
-      erc20Account.getBalance.intValue()
+      erc20Account.getBalance.toString(10).toLong
     )
   }
 }
