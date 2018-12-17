@@ -171,7 +171,7 @@ object Account extends Logging {
             case Some(amount) => Future.successful(c.convertAmount(amount))
             case None => ClientFactory.apiClient.getFees(c.getName).map(f => c.convertAmount(f.getAmount(ti.feeMethod.get)))
           }
-          tx <- a.asBitcoinLikeAccount().buildTransaction()
+          tx <- a.asBitcoinLikeAccount().buildTransaction(false)
             .sendToAddress(c.convertAmount(ti.amount), ti.recipient)
             .pickInputs(BitcoinLikePickingStrategy.DEEP_OUTPUTS_FIRST, UnsignedInteger.MAX_VALUE.intValue())
             .setFeesPerByte(feesPerByte)
@@ -185,7 +185,7 @@ object Account extends Logging {
               case Some(erc20Account) =>
                 val balance: Long = erc20Account.getBalance.toString(10).toLong
                 // TODO just for test usage, can be removed
-                debug(s"Creating ERC20 transaction on account (balance: $balance, operations: ${erc20Account.getOperations.asScala.map(ERC20OperationView(_))}) ... transaction info: $ti")
+                debug(s"Creating ERC20 transaction on account (balance: $balance, operations: ${erc20Account.getOperations.asScala.map(ERC20OperationView(_)).size}) ... transaction info: $ti")
                 if(balance > ti.amount) {
                   val inputData = erc20Account.getTransferToAddressData(BigInt.fromLong(ti.amount), ti.recipient)
                   a.asEthereumLikeAccount().buildTransaction()
