@@ -110,12 +110,22 @@ object Account extends Logging {
   def erc20Accounts(a: core.Account): Either[Exception, List[core.ERC20LikeAccount]] =
     asETHAccount(a).map(_.getERC20Accounts.asScala.toList)
 
-  def erc20Balance(contract: String, a: core.Account): Either[Exception, Long] =
-  // TODO int is dangerous here, find a way to Long
-    asERC20Account(contract, a).map(_.getBalance.intValue().toLong)
+  def erc20Balance(contract: String, a: core.Account): Either[Exception, Long] = {
+    // TODO int is dangerous here, find a way to Long
+    asERC20Account(contract, a) match {
+      case Right(erc20Account) => Right(erc20Account.getBalance.intValue().toLong)
+      case Left(_: ERC20NotFoundException) => Right(0)
+      case Left(ex) => Left(ex)
+    }
+  }
 
-  def erc20Operations(contract: String, a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
-    asERC20Account(contract, a).map(_.getOperations.asScala.toList)
+  def erc20Operations(contract: String, a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] = {
+    asERC20Account(contract, a) match {
+      case Right(erc20Account) => Right(erc20Account.getOperations.asScala.toList)
+      case Left(_: ERC20NotFoundException) => Right(List[core.ERC20LikeOperation]())
+      case Left(ex) => Left(ex)
+    }
+  }
 
   def erc20Operations(a: core.Account): Either[Exception, List[core.ERC20LikeOperation]] =
     asETHAccount(a).map(_.getERC20Accounts.asScala.flatMap(_.getOperations.asScala).toList)
@@ -197,7 +207,7 @@ object Account extends Logging {
                 } else {
                   Future.failed(ERC20BalanceNotEnough(erc20Account.getToken.getContractAddress, balance, ti.amount))
                 }
-              case None => Future.failed(ERC20NotFoundException(contract))
+              case None => Future.failed(ERC20BalanceNotEnough(contract, 0, ti.amount))
             }
           case None =>
             a.asEthereumLikeAccount().buildTransaction()
