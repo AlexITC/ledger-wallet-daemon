@@ -29,17 +29,29 @@ class PoolsService @Inject()(daemonCache: DaemonCache) extends DaemonService {
     }
   }
 
-  def syncOperations(poolInfo: PoolInfo): Future[Seq[SynchronizationResult]] = {
-    daemonCache.syncOperations(poolInfo)
-  }
-
-  def syncOperations(): Future[Seq[SynchronizationResult]] = {
-    daemonCache.syncOperations
-  }
-
   def removePool(poolInfo: PoolInfo): Future[Unit] = {
     daemonCache.deleteWalletPool(poolInfo)
   }
+  /**
+    * Method to synchronize account operations from public resources. The method may take a while
+    * to finish.
+    *
+    * @return a Future of sequence of result of synchronization.
+    */
+  def syncOperations: Future[Seq[SynchronizationResult]] =
+    daemonCache.getUsers.flatMap { us =>
+      Future.sequence(us.map { user => user.sync()}).map (_.flatten)
+    }
+
+
+  /**
+    * Method to synchronize account operations from public resources. The method may take a while
+    * to finish. This method only synchronize a single pool.
+    *
+    * @return a Future of sequence of result of synchronization.
+    */
+  def syncOperations(poolInfo: PoolInfo): Future[Seq[SynchronizationResult]] =
+    daemonCache.withWalletPool(poolInfo)(_.sync())
 
 }
 

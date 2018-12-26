@@ -16,47 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait DaemonCache {
 
-  // ************** account *************
-  /**
-    * Method to create an account instance. The account may already exist in the library.
-    *
-    * @param accountDerivation derivation information specified for this account.
-    * @param user              the user who can access the account.
-    * @param poolName          the name of the wallet pool the account belongs to.
-    * @param walletName        the name of the wallet the account belongs to.
-    * @return a Future of new instance of `co.ledger.wallet.daemon.models.Account`.
-    */
-  def createAccount(accountDerivation: AccountDerivationView, walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Account] =
-    withWallet(walletInfo)(w => createAccount(accountDerivation, w))
 
-  def createAccount(accountDerivation: AccountDerivationView, wallet: Wallet)(implicit ec: ExecutionContext): Future[Account] =
-    wallet.addAccountIfNotExist(accountDerivation)
-
-  /**
-    * Method to create an account instance with extended account. The account may already exist in the library.
-    *
-    * @param accountDerivation derivation information specified for this account.
-    * @param user              the user who can access the account.
-    * @param poolName          the name of the wallet pool the account belongs to.
-    * @param walletName        the name of the wallet the account belongs to.
-    * @return a Future of new instance of `co.ledger.wallet.daemon.models.Account`.
-    */
-  def createAccount(accountDerivation: AccountExtendedDerivationView, walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Account] =
-    withWallet(walletInfo)(w => createAccount(accountDerivation, w))
-
-  def createAccount(accountDerivation: AccountExtendedDerivationView, wallet: Wallet)(implicit ec: ExecutionContext): Future[Account] =
-    wallet.addAccountIfNotExist(accountDerivation)
-
-  /**
-    * Getter of accounts sequence with specified parameters.
-    *
-    * @param pubKey     the public key of instance of `co.ledger.wallet.daemon.DefaultDaemonCache.User`.
-    * @param poolName   the name of wallet pool the account belongs to.
-    * @param walletName the name of wallet the account belongs to.
-    * @return a Future of a sequence of instances of `co.ledger.wallet.daemon.models.Account`.
-    */
-  def getAccounts(walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Seq[Account]] =
-    withWallet(walletInfo)(_.accounts)
 
   /**
     * Getter of account instance with specified parameters.
@@ -97,19 +57,6 @@ trait DaemonCache {
     * Getter for fresh addresses of specified account.
     *
     * @param accountIndex the unique index of specified account.
-    * @param pubKey       the publick key of instance of `co.ledger.wallet.daemon.DefaultDaemonCache.User`.
-    * @param poolName     the name of wallet pool the account belongs to.
-    * @param walletName   the name of wallet the account belongs to.
-    * @return a Future of a sequence of instances of `co.ledger.wallet.daemon.models.Account`.
-    */
-  def getDerivationPath(accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[String] =
-    withWallet(accountInfo.walletInfo)(_.accountDerivationPathInfo(accountInfo.accountIndex))
-
-
-  /**
-    * Getter for fresh addresses of specified account.
-    *
-    * @param accountIndex the unique index of specified account.
     * @param user         the user who can access the account.
     * @param poolName     the name of wallet pool the account belongs to.
     * @param walletName   the name of wallet the account belongs to.
@@ -132,29 +79,6 @@ trait DaemonCache {
     */
   def getAccountOperations(batch: Int, fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView]
 
-  /**
-    * Getter for account operation instance with specified uid.
-    *
-    * @param user         the user who can access the account.
-    * @param uid          the unique identifier of operation defined by core lib.
-    * @param accountIndex the unique account index.
-    * @param poolName     the name of wallet pool the account belongs to.
-    * @param walletName   the name of wallet the account belongs to.
-    * @param fullOp       the flag specifying the query result details. If greater than zero, detailed operations,
-    *                     including transaction information, will be returned.
-    * @return a Future of optional `co.ledger.wallet.daemon.models.Operation` instance.
-    */
-  def getAccountOperation(uid: String, fullOp: Int, accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[Option[OperationView]] =
-    withAccountAndWallet(accountInfo) {
-      case (account, wallet) =>
-        for {
-          operationOpt <- account.operation(uid, fullOp)
-          op <- operationOpt match {
-            case None => Future.successful(None)
-            case Some(op) => Operations.getView(op, wallet, account).map(Some(_))
-          }
-        } yield op
-    }
 
   /**
     * Getter of account operations batch instances with specified parameters.
@@ -187,31 +111,6 @@ trait DaemonCache {
                                          fullOp: Int, accountInfo: AccountInfo): Future[PackedOperationsView]
 
 
-  /**
-    * Getter of information for next account creation with extended keys.
-    *
-    * @param pubKey       the public key of user.
-    * @param poolName     the name of wallet pool the account belongs to.
-    * @param walletName   the name of wallet the account belongs to.
-    * @param accountIndex the unique index of the account. If `None`, a default index will be created. If the
-    *                     specified index already exists in core library, an error will occur. `None` is recommended.
-    * @return a Future of `co.ledger.wallet.daemon.models.Derivation` instance.
-    */
-  def getNextExtendedAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[ExtendedDerivation] =
-    withWallet(walletInfo)(_.accountExtendedCreation(accountIndex))
-
-  /**
-    * Getter of information for next account creation.
-    *
-    * @param pubKey       the public key of user.
-    * @param poolName     the name of wallet pool the account belongs to.
-    * @param walletName   the name of wallet the account belongs to.
-    * @param accountIndex the unique index of the account. If `None`, a default index will be created. If the
-    *                     specified index already exists in core library, an error will occur. `None` is recommended.
-    * @return a Future of `co.ledger.wallet.daemon.models.Derivation` instance.
-    */
-  def getNextAccountCreationInfo(accountIndex: Option[Int], walletInfo: WalletInfo)(implicit ec: ExecutionContext): Future[Derivation] =
-    withWallet(walletInfo)(_.accountCreationInfo(accountIndex))
 
   // ************** currency ************
   /**
@@ -337,35 +236,6 @@ trait DaemonCache {
   def deleteWalletPool(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Unit] =
     withUser(poolInfo.pubKey)(_.deletePool(poolInfo.poolName))
 
-  /**
-    * Method to synchronize account operations from public resources. The method may take a while
-    * to finish.
-    *
-    * @return a Future of sequence of result of synchronization.
-    */
-  def syncOperations(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
-    getUsers.flatMap { us =>
-      Future.sequence(us.map { user => user.sync()}).map (_.flatten)
-    }
-
-
-  /**
-    * Method to synchronize account operations from public resources. The method may take a while
-    * to finish. This method only synchronize a single pool.
-    *
-    * @return a Future of sequence of result of synchronization.
-    */
-  def syncOperations(poolInfo: PoolInfo)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
-    withWalletPool(poolInfo)(_.sync())
-
-  /**
-    * Method to synchronize account operations from public resources. The method may take a while
-    * to finish. This method onlly synchronize a single account.
-    *
-    * @return a Future of sequence of result of synchronization.
-    */
-  def syncOperations(accountInfo: AccountInfo)(implicit ec: ExecutionContext): Future[Seq[SynchronizationResult]] =
-    withAccount(accountInfo)(_.sync(accountInfo.poolName, accountInfo.walletName).map(Seq(_)))
 
   //**************** user ***************
   /**

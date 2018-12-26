@@ -6,7 +6,7 @@ import co.ledger.wallet.daemon.async.MDCPropagatingExecutionContext
 import javax.inject.Singleton
 import co.ledger.wallet.daemon.configurations.DaemonConfiguration
 import co.ledger.wallet.daemon.database.{DaemonCache, DefaultDaemonCache}
-import co.ledger.wallet.daemon.services.UsersService
+import co.ledger.wallet.daemon.services.{PoolsService, UsersService}
 import com.google.inject.Provides
 import com.twitter.concurrent.NamedPoolThreadFactory
 import com.twitter.inject.{Injector, TwitterModule}
@@ -30,11 +30,11 @@ object DaemonCacheModule extends TwitterModule {
   }
 
   override def singletonPostWarmupComplete(injector: Injector): Unit = {
-    val daemonCache = injector.instance[DaemonCache](classOf[DaemonCache])
+    val poolsService = injector.instance[PoolsService](classOf[PoolsService])
 
     def synchronizationTask(): Unit = {
       val t0 = System.currentTimeMillis()
-      Try(Await.result(daemonCache.syncOperations, 5.minutes)) match {
+      Try(Await.result(poolsService.syncOperations, 5.minutes)) match {
         case Success(result) =>
           result.foreach { r =>
             if (r.syncResult) { info(s"Synchronization complete for $r") }

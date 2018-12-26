@@ -14,6 +14,7 @@ import org.scalatest.junit.AssertionsForJUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import Wallet._
 
 class DaemonCacheTest extends AssertionsForJUnit {
 
@@ -125,11 +126,12 @@ object DaemonCacheTest {
     Await.result(cache.createWalletPool(PoolInfo("pool_3", user2.get.pubKey), ""), Duration.Inf)
     Await.result(cache.createWalletPool(PoolInfo(POOL_NAME, user3.get.pubKey), ""), Duration.Inf)
     Await.result(cache.createWallet("bitcoin", WalletInfo(WALLET_NAME, POOL_NAME, user3.get.pubKey)), Duration.Inf)
-    Await.result(cache.createAccount(
+    val walletInfo = WalletInfo(WALLET_NAME, POOL_NAME, user3.get.pubKey)
+    Await.result(cache.withWallet(walletInfo){w =>
+      w.addAccountIfNotExist(
       AccountDerivationView(0, List(
         DerivationView("44'/0'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")),
-        DerivationView("44'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")))),
-      WalletInfo(WALLET_NAME, POOL_NAME, user3.get.pubKey))
+        DerivationView("44'/0'", "main", Option("0437bc83a377ea025e53eafcd18f299268d1cecae89b4f15401926a0f8b006c0f7ee1b995047b3e15959c5d10dd1563e22a2e6e4be9572aa7078e32f317677a901"), Option("d1bb833ecd3beed6ec5f6aa79d3a424d53f5b99147b21dbc00456b05bc978a71")))))}
       , Duration.Inf)
     Await.result(cache.getAccountOperations(1, 1, AccountInfo(0, WALLET_NAME, POOL_NAME, user3.get.pubKey)), Duration.Inf)
     Await.result(cache.syncOperations(), Duration.Inf)
