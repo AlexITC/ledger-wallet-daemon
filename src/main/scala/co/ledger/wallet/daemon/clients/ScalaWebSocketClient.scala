@@ -6,14 +6,15 @@ import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import co.ledger.core.{ErrorCode, WebSocketConnection}
 import co.ledger.wallet.daemon.services.LogMsgMaker
+import com.github.ghik.silencer.silent
 import com.twitter.inject.Logging
 import javax.annotation.Nullable
 import javax.annotation.concurrent.ThreadSafe
-import javax.websocket.{ClientEndpoint, ContainerProvider, Session}
+import javax.websocket.{ClientEndpoint, ContainerProvider, OnMessage, Session}
 
 @ThreadSafe
 @ClientEndpoint
-class ScalaWebSocketClient extends JavaWebSocketClient with Logging{
+class ScalaWebSocketClient extends co.ledger.core.WebSocketClient with Logging{
   import ScalaWebSocketClient._
 
   override def connect(url: String, connection: WebSocketConnection): Unit = {
@@ -87,7 +88,14 @@ class ScalaWebSocketClient extends JavaWebSocketClient with Logging{
 
   }
 
-
+  // @silent is used here because we have no other way to walk around the
+  // ugly Java method without generating warning in Scala. @silent should
+  // not be used as a no-brainer to by pass our fatal warning compiler option.
+  @silent
+  @OnMessage
+  // here to avoid error "java.lang.IllegalStateException: Text message handler not found".
+  // without this, the account synchronization won't work correctly.
+  def processMessage(message: String, session: Session): Unit = Unit
 
 }
 
