@@ -9,11 +9,11 @@ import co.ledger.wallet.daemon.services.LogMsgMaker
 import com.twitter.inject.Logging
 import javax.annotation.Nullable
 import javax.annotation.concurrent.ThreadSafe
-import javax.websocket.{ClientEndpoint, ContainerProvider, OnMessage, Session}
+import javax.websocket.{ClientEndpoint, ContainerProvider, Session}
 
 @ThreadSafe
 @ClientEndpoint
-class ScalaWebSocketClient extends co.ledger.core.WebSocketClient with Logging{
+class ScalaWebSocketClient extends JavaWebSocketClient with Logging{
   import ScalaWebSocketClient._
 
   override def connect(url: String, connection: WebSocketConnection): Unit = {
@@ -87,9 +87,6 @@ class ScalaWebSocketClient extends co.ledger.core.WebSocketClient with Logging{
 
   }
 
-  // here to avoid error "java.lang.IllegalStateException: Text message handler not found"
-  @OnMessage
-  def processMessage(): Unit = Unit
 
 
 }
